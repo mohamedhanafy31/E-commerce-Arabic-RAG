@@ -16,13 +16,23 @@ This document explains the architecture, key components, and end-to-end processi
   - `GET /health`: service health probe.
   - `GET /voices`: lists available Google TTS voices (filterable by `language_code`, `name_contains`).
   - `POST /tts`: synthesizes speech from `text` or `ssml`, writes audio to disk, returns a `file_url`.
+  - `WebSocket /ws/tts-stream`: streams TTS audio in real-time using sentence-based chunking.
   - `GET /`: serves `pages/index.html` for quick manual testing.
 - **Models** (`app/models/schemas.py`)
   - `TTSRequest`: validates input; exactly one of `text` or `ssml` is required; supports `language_code`, `voice_name`, `gender`, `audio_encoding`, `speaking_rate`, `pitch`, `effects_profile_ids`, `voice_gender_choice`.
+  - `StreamingTTSRequest`: same fields as `TTSRequest` for WebSocket streaming.
+  - `StreamMetadata`, `StreamComplete`, `StreamError`: WebSocket message schemas.
   - `TTSResponse`: contains `file_url`, `voice_used`, `language_code`.
 - **TTS Service** (`app/services/gcp_tts.py`)
   - Wraps `google.cloud.texttospeech` for listing voices and synthesizing audio.
   - Voice selection supports explicit `voice_name`, preferred `gender`, fallbacks for Arabic locales, and a two-voice toggle via `voice_gender_choice` using `PREFERRED_VOICE_NAMES`.
+- **Streaming TTS Service** (`app/services/streaming_tts.py`)
+  - Provides async streaming of TTS audio using sentence-based chunking.
+  - Implements retry logic (3 attempts) for failed chunks.
+  - Yields audio chunks as they are generated from Google TTS API.
+- **Text Chunker** (`app/services/text_chunker.py`)
+  - Splits Arabic text into sentences based on punctuation (., ؟, !).
+  - Handles edge cases and filters empty chunks.
 - **Filename Utility** (`app/services/filename.py`)
   - Builds sanitized, timestamped, hashed audio filenames.
 - **Middleware** (`app/middleware/error_handler.py`)
@@ -78,6 +88,46 @@ sequenceDiagram
   FS-->>API: MP3 bytes
   API-->>UI: MP3 stream
   UI-->>User: Play audio
+```
+
+### Streaming Flow (WebSocket)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor User
+  participant UI as Browser (index.html)
+  participant WS as WebSocket /ws/tts-stream
+  participant StreamSvc as StreamingTTSService
+  participant Chunker as TextChunker
+  participant TTS as GoogleTTSService
+  participant GCP as Google TTS API
+
+  User->>UI: Enter text, enable streaming mode
+  UI->>WS: WebSocket connection
+  WS-->>UI: Connection established
+  UI->>WS: JSON request { text, language_code, voice_gender_choice, audio_encoding }
+  WS->>WS: Validate StreamingTTSRequest
+  WS->>StreamSvc: synthesize_streaming(...)
+  StreamSvc->>Chunker: split_into_sentences(text)
+  Chunker-->>StreamSvc: [sentence1, sentence2, sentence3]
+  StreamSvc->>WS: metadata { voice_used, total_chunks: 3 }
+  WS-->>UI: JSON metadata
+  
+  loop For each sentence
+    StreamSvc->>TTS: synthesize(sentence)
+    TTS->>GCP: synthesize_speech(sentence, voice, config)
+    GCP-->>TTS: audio bytes
+    TTS-->>StreamSvc: audio bytes
+    StreamSvc->>WS: audio chunk (binary)
+    WS-->>UI: Binary audio data
+    UI->>UI: Buffer audio chunk
+  end
+  
+  StreamSvc->>WS: complete { successful_chunks: 3, failed_chunks: 0 }
+  WS-->>UI: JSON completion
+  UI->>UI: Play buffered audio
+  UI-->>User: Audio playback
 ```
 
 ### Component View

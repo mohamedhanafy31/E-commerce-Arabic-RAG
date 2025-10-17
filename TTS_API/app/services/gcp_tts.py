@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
+import os
 from google.cloud import texttospeech
-from ..core.config import get_preferred_voice_list
+from ..core.config import get_preferred_voice_list, settings
 
 
 GENDER_MAP = {
@@ -19,6 +20,9 @@ ENCODING_MAP = {
 
 class GoogleTTSService:
     def __init__(self) -> None:
+        # Ensure GOOGLE_APPLICATION_CREDENTIALS is set if provided via settings/.env
+        if settings.google_application_credentials and not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
         self.client = texttospeech.TextToSpeechClient()
 
     def list_voices(self, language_code: Optional[str] = None) -> List[texttospeech.Voice]:

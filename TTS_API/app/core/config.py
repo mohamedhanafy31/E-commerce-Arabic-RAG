@@ -3,6 +3,9 @@ from typing import List, Optional
 import os
 
 
+ENV_FILE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
+
 class Settings(BaseSettings):
     app_name: str = "TTS API"
     log_level: str = os.getenv("LOG_LEVEL", "info")
@@ -17,7 +20,9 @@ class Settings(BaseSettings):
     )
 
     class Config:
-        env_file = ".env"
+        # Resolve .env relative to the project root (TTS_API/.env), regardless of CWD
+        env_file = ENV_FILE_PATH
+        env_file_encoding = "utf-8"
 
 
 settings = Settings()

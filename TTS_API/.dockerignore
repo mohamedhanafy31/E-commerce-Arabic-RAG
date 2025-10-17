@@ -1,0 +1,11 @@
+__pycache__
+.venv
+.env
+*.pyc
+*.pyo
+*.pyd
+*.log
+tests
+tts-key.json
+data
+

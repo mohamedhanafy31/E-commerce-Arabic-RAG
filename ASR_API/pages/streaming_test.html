@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASR Streaming Test - Web Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-group {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 15px;
+            border: 2px solid #e9ecef;
+        }
+
+        .control-group h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .status {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+
+        .results {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .results h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+        }
+
+        .transcript {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #495057;
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            position: relative;
+        }
+        
+        .transcript .complete-text {
+            color: #495057;
+        }
+        
+        .transcript .interim-text {
+            color: #6c757d;
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        .metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .metadata-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metadata-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+        }
+
+        .metadata-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+        }
+
+        .log-entry {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .log-entry.info {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .log-entry.success {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .log-entry.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .log-entry.warning {
+            background: #fff8e1;
+            color: #f57c00;
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1rem;
+        }
+
+        .audio-visualizer {
+            width: 100%;
+            height: 60px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .audio-bar {
+            position: absolute;
+            bottom: 0;
+            width: 4px;
+            background: #667eea;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+
+        .recording-indicator {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .recording-indicator.active {
+            display: flex;
+        }
+
+        .pulse {
+            width: 12px;
+            height: 12px;
+            background: #dc3545;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 ASR Streaming Test</h1>
+            <p>Real-time audio transcription via WebSocket</p>
+        </div>
+
+        <div class="content">
+            <!-- Connection Status -->
+            <div id="status" class="status disconnected">
+                Disconnected
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <div class="control-group">
+                    <h3>🔧 Configuration</h3>
+                    <div class="form-group">
+                        <label for="languageCode" class="form-label">Language</label>
+                        <select id="languageCode" class="form-control">
+                            <option value="ar-EG">Arabic (Egypt) - ar-EG</option>
+                            <option value="en-US">English (US) - en-US</option>
+                            <option value="en-GB">English (UK) - en-GB</option>
+                            <option value="fr-FR">French - fr-FR</option>
+                            <option value="de-DE">German - de-DE</option>
+                            <option value="es-ES">Spanish - es-ES</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sampleRate" class="form-label">Sample Rate</label>
+                        <select id="sampleRate" class="form-control">
+                            <option value="16000">16,000 Hz</option>
+                            <option value="8000">8,000 Hz</option>
+                            <option value="44100">44,100 Hz</option>
+                            <option value="48000">48,000 Hz</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="encoding" class="form-label">Encoding</label>
+                        <select id="encoding" class="form-control">
+                            <option value="LINEAR16">LINEAR16</option>
+                            <option value="FLAC">FLAC</option>
+                            <option value="MULAW">MULAW</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>🎵 Audio Controls</h3>
+                    <div class="form-group">
+                        <label for="chunkSize" class="form-label">Chunk Size (bytes)</label>
+                        <input type="number" id="chunkSize" class="form-control" value="4096" min="1024" max="16384" step="1024">
+                    </div>
+                    <div class="form-group">
+                        <label for="chunkDelay" class="form-label">Chunk Delay (ms)</label>
+                        <input type="number" id="chunkDelay" class="form-control" value="100" min="10" max="1000" step="10">
+                    </div>
+                    <button id="connectBtn" class="btn">🔌 Connect</button>
+                    <button id="disconnectBtn" class="btn btn-danger" disabled>🔌 Disconnect</button>
+                </div>
+
+                <div class="control-group">
+                    <h3>🎤 Recording</h3>
+                    <div class="recording-indicator" id="recordingIndicator">
+                        <div class="pulse"></div>
+                        <span>Recording...</span>
+                    </div>
+                    <button id="startRecordingBtn" class="btn btn-success" disabled>🎤 Start Recording</button>
+                    <button id="stopRecordingBtn" class="btn btn-danger" disabled>⏹️ Stop Recording</button>
+                    <button id="clearTranscriptBtn" class="btn" disabled>🗑️ Clear Transcript</button>
+                    <div class="audio-visualizer" id="audioVisualizer"></div>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="results">
+                <h3>📝 Transcription Results</h3>
+                <div class="transcript" id="transcript">No transcription yet...</div>
+                <div class="metadata" id="metadata"></div>
+            </div>
+
+            <!-- Log -->
+            <div class="log">
+                <h3>📋 Activity Log</h3>
+                <div id="logEntries"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ASRStreamingClient {
+            constructor() {
+                this.ws = null;
+                this.isConnected = false;
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.audioContext = null;
+                this.analyser = null;
+                this.microphone = null;
+                this.chunks = [];
+                this.completeTranscript = '';
+                this.currentInterimText = '';
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.log('ASR Streaming Client initialized', 'info');
+            }
+
+            initializeElements() {
+                this.elements = {
+                    status: document.getElementById('status'),
+                    connectBtn: document.getElementById('connectBtn'),
+                    disconnectBtn: document.getElementById('disconnectBtn'),
+                    startRecordingBtn: document.getElementById('startRecordingBtn'),
+                    stopRecordingBtn: document.getElementById('stopRecordingBtn'),
+                    clearTranscriptBtn: document.getElementById('clearTranscriptBtn'),
+                    recordingIndicator: document.getElementById('recordingIndicator'),
+                    audioVisualizer: document.getElementById('audioVisualizer'),
+                    transcript: document.getElementById('transcript'),
+                    metadata: document.getElementById('metadata'),
+                    logEntries: document.getElementById('logEntries'),
+                    languageCode: document.getElementById('languageCode'),
+                    sampleRate: document.getElementById('sampleRate'),
+                    encoding: document.getElementById('encoding'),
+                    chunkSize: document.getElementById('chunkSize'),
+                    chunkDelay: document.getElementById('chunkDelay')
+                };
+            }
+
+            setupEventListeners() {
+                this.elements.connectBtn.addEventListener('click', () => this.connect());
+                this.elements.disconnectBtn.addEventListener('click', () => this.disconnect());
+                this.elements.startRecordingBtn.addEventListener('click', () => this.startRecording());
+                this.elements.stopRecordingBtn.addEventListener('click', () => this.stopRecording());
+                this.elements.clearTranscriptBtn.addEventListener('click', () => this.clearTranscript());
+            }
+
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry ${type}`;
+                logEntry.textContent = `[${timestamp}] ${message}`;
+                
+                this.elements.logEntries.appendChild(logEntry);
+                this.elements.logEntries.scrollTop = this.elements.logEntries.scrollHeight;
+                
+                console.log(`[${timestamp}] ${message}`);
+            }
+
+            updateStatus(status, message) {
+                this.elements.status.className = `status ${status}`;
+                this.elements.status.textContent = message;
+            }
+
+            async connect() {
+                try {
+                    this.updateStatus('connecting', 'Connecting...');
+                    this.log('Connecting to WebSocket...', 'info');
+                    
+                    const wsUrl = 'ws://localhost:8001/ws/asr-stream';
+                    this.ws = new WebSocket(wsUrl);
+                    
+                    this.ws.onopen = () => {
+                        this.isConnected = true;
+                        this.updateStatus('connected', 'Connected');
+                        this.log('WebSocket connected successfully', 'success');
+                        
+                        // Send configuration
+                        const config = {
+                            language_code: this.elements.languageCode.value,
+                            sample_rate_hertz: parseInt(this.elements.sampleRate.value),
+                            encoding: this.elements.encoding.value
+                        };
+                        
+                        this.ws.send(JSON.stringify(config));
+                        this.log(`Sent configuration: ${JSON.stringify(config)}`, 'info');
+                        
+                        this.updateButtons();
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        try {
+                            const message = JSON.parse(event.data);
+                            this.handleMessage(message);
+                        } catch (e) {
+                            this.log(`Received non-JSON message: ${event.data}`, 'warning');
+                        }
+                    };
+                    
+                    this.ws.onclose = () => {
+                        this.isConnected = false;
+                        this.updateStatus('disconnected', 'Disconnected');
+                        this.log('WebSocket connection closed', 'warning');
+                        this.updateButtons();
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        this.log(`WebSocket error: ${error}`, 'error');
+                        this.updateStatus('disconnected', 'Connection Error');
+                    };
+                    
+                } catch (error) {
+                    this.log(`Connection failed: ${error.message}`, 'error');
+                    this.updateStatus('disconnected', 'Connection Failed');
+                }
+            }
+
+            disconnect() {
+                if (this.ws) {
+                    this.ws.close();
+                    this.ws = null;
+                }
+                this.isConnected = false;
+                this.updateStatus('disconnected', 'Disconnected');
+                this.log('Disconnected from WebSocket', 'info');
+                this.updateButtons();
+            }
+
+            handleMessage(message) {
+                switch (message.type) {
+                    case 'metadata':
+                        if (message.status === 'ready') {
+                            this.log('Server ready for audio streaming', 'success');
+                            this.elements.startRecordingBtn.disabled = false;
+                        }
+                        break;
+                        
+                    case 'transcript':
+                        this.updateTranscript(message);
+                        break;
+                        
+                    case 'error':
+                        this.log(`Server error: ${message.detail}`, 'error');
+                        break;
+                        
+                    case 'complete':
+                        this.log('Transcription completed', 'success');
+                        break;
+                        
+                    default:
+                        this.log(`Unknown message type: ${message.type}`, 'warning');
+                }
+            }
+
+            updateTranscript(message) {
+                const status = message.is_final ? 'FINAL' : 'INTERIM';
+                this.log(`[${status}] ${message.text} (confidence: ${message.confidence?.toFixed(2) || 'N/A'})`, 'success');
+                
+                if (message.is_final) {
+                    // Add final text to complete transcript
+                    if (message.text.trim()) {
+                        this.completeTranscript += (this.completeTranscript ? ' ' : '') + message.text.trim();
+                        this.currentInterimText = '';
+                    }
+                } else {
+                    // Update interim text
+                    this.currentInterimText = message.text;
+                }
+                
+                // Update display with complete transcript + current interim
+                let displayHTML = '';
+                if (this.completeTranscript) {
+                    displayHTML += `<span class="complete-text">${this.completeTranscript}</span>`;
+                }
+                if (this.currentInterimText) {
+                    displayHTML += `<span class="interim-text"> ${this.currentInterimText}</span>`;
+                }
+                this.elements.transcript.innerHTML = displayHTML || 'No transcription yet...';
+                
+                // Auto-scroll to bottom of transcript
+                this.elements.transcript.scrollTop = this.elements.transcript.scrollHeight;
+                
+                // Update metadata
+                this.elements.metadata.innerHTML = `
+                    <div class="metadata-item">
+                        <div class="metadata-label">Confidence</div>
+                        <div class="metadata-value">${message.confidence ? (message.confidence * 100).toFixed(1) + '%' : 'N/A'}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Status</div>
+                        <div class="metadata-value">${status}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Language</div>
+                        <div class="metadata-value">${this.elements.languageCode.value}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Complete Words</div>
+                        <div class="metadata-value">${this.completeTranscript.split(' ').filter(w => w.trim()).length}</div>
+                    </div>
+                `;
+            }
+
+            async startRecording() {
+                try {
+                    this.log('Requesting microphone access...', 'info');
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            sampleRate: parseInt(this.elements.sampleRate.value),
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        }
+                    });
+                    
+                    this.setupAudioContext(stream);
+                    this.setupRealTimeStreaming(stream);
+                    
+                    this.isRecording = true;
+                    this.elements.recordingIndicator.classList.add('active');
+                    this.log('Recording started', 'success');
+                    
+                    this.updateButtons();
+                    
+                } catch (error) {
+                    this.log(`Failed to start recording: ${error.message}`, 'error');
+                }
+            }
+
+            setupAudioContext(stream) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: parseInt(this.elements.sampleRate.value)
+                });
+                
+                this.microphone = this.audioContext.createMediaStreamSource(stream);
+                this.analyser = this.audioContext.createAnalyser();
+                this.analyser.fftSize = 256;
+                
+                this.microphone.connect(this.analyser);
+                
+                this.startVisualization();
+            }
+
+            startVisualization() {
+                const bufferLength = this.analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                const draw = () => {
+                    if (!this.isRecording) return;
+                    
+                    this.analyser.getByteFrequencyData(dataArray);
+                    
+                    // Clear previous bars
+                    this.elements.audioVisualizer.innerHTML = '';
+                    
+                    // Create bars
+                    const barWidth = this.elements.audioVisualizer.offsetWidth / bufferLength;
+                    
+                    for (let i = 0; i < bufferLength; i++) {
+                        const barHeight = (dataArray[i] / 255) * this.elements.audioVisualizer.offsetHeight;
+                        const bar = document.createElement('div');
+                        bar.className = 'audio-bar';
+                        bar.style.left = `${i * barWidth}px`;
+                        bar.style.height = `${barHeight}px`;
+                        this.elements.audioVisualizer.appendChild(bar);
+                    }
+                    
+                    requestAnimationFrame(draw);
+                };
+                
+                draw();
+            }
+
+            setupRealTimeStreaming(stream) {
+                // Use ScriptProcessorNode for real-time audio processing
+                const bufferSize = 4096; // Buffer size in samples
+                this.processor = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
+                
+                this.processor.onaudioprocess = (event) => {
+                    if (!this.isRecording) return;
+                    
+                    const inputBuffer = event.inputBuffer;
+                    const inputData = inputBuffer.getChannelData(0);
+                    
+                    // Convert to PCM and send immediately
+                    const pcmData = this.convertFloat32ToPCM(inputData);
+                    
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN && pcmData.length > 0) {
+                        this.ws.send(pcmData);
+                    }
+                };
+                
+                // Connect the processor
+                this.microphone.connect(this.processor);
+                this.processor.connect(this.audioContext.destination);
+                
+                this.log('Real-time audio streaming started', 'success');
+            }
+            
+            convertFloat32ToPCM(float32Array) {
+                const length = float32Array.length;
+                const buffer = new ArrayBuffer(length * 2);
+                const view = new DataView(buffer);
+                
+                for (let i = 0; i < length; i++) {
+                    const sample = Math.max(-1, Math.min(1, float32Array[i]));
+                    const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(i * 2, intSample, true); // little endian
+                }
+                
+                return new Uint8Array(buffer);
+            }
+
+            async processAudioChunks() {
+                if (this.chunks.length === 0) return;
+                
+                // Process only the latest chunk to avoid delays
+                const latestChunk = this.chunks[this.chunks.length - 1];
+                this.chunks = []; // Clear processed chunks
+                
+                try {
+                    // Convert WebM to PCM more efficiently
+                    const arrayBuffer = await latestChunk.arrayBuffer();
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                        sampleRate: parseInt(this.elements.sampleRate.value)
+                    });
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    
+                    // Convert to PCM
+                    const pcmData = this.convertToPCM(audioBuffer);
+                    
+                    // Send PCM data immediately
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN && pcmData.length > 0) {
+                        this.ws.send(pcmData);
+                        this.log(`Sent ${pcmData.length} bytes of PCM data`, 'info');
+                    }
+                    
+                    // Close the temporary audio context
+                    audioContext.close();
+                    
+                } catch (error) {
+                    this.log(`Error processing audio: ${error.message}`, 'error');
+                }
+            }
+
+            convertToPCM(audioBuffer) {
+                const length = audioBuffer.length;
+                const sampleRate = audioBuffer.sampleRate;
+                const channels = audioBuffer.numberOfChannels;
+                
+                // Convert to 16-bit PCM with proper endianness
+                const pcmData = new Int16Array(length * channels);
+                const channelData = audioBuffer.getChannelData(0); // Use first channel
+                
+                for (let i = 0; i < length; i++) {
+                    // Convert float32 to int16 with proper scaling
+                    const sample = Math.max(-1, Math.min(1, channelData[i]));
+                    pcmData[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                }
+                
+                // Convert to little-endian bytes
+                const buffer = new ArrayBuffer(pcmData.length * 2);
+                const view = new DataView(buffer);
+                for (let i = 0; i < pcmData.length; i++) {
+                    view.setInt16(i * 2, pcmData[i], true); // true = little endian
+                }
+                
+                return new Uint8Array(buffer);
+            }
+
+            stopRecording() {
+                if (this.processor) {
+                    this.processor.disconnect();
+                    this.processor = null;
+                }
+                
+                if (this.microphone) {
+                    this.microphone.disconnect();
+                }
+                
+                if (this.audioContext) {
+                    this.audioContext.close();
+                }
+                
+                this.isRecording = false;
+                this.elements.recordingIndicator.classList.remove('active');
+                this.elements.audioVisualizer.innerHTML = '';
+                this.log('Recording stopped', 'info');
+                
+                this.updateButtons();
+            }
+
+            clearTranscript() {
+                this.completeTranscript = '';
+                this.currentInterimText = '';
+                this.elements.transcript.innerHTML = 'No transcription yet...';
+                this.elements.metadata.innerHTML = '';
+                this.log('Transcript cleared', 'info');
+            }
+            
+            updateButtons() {
+                this.elements.connectBtn.disabled = this.isConnected;
+                this.elements.disconnectBtn.disabled = !this.isConnected;
+                this.elements.startRecordingBtn.disabled = !this.isConnected || this.isRecording;
+                this.elements.stopRecordingBtn.disabled = !this.isRecording;
+                this.elements.clearTranscriptBtn.disabled = !this.isConnected;
+            }
+        }
+
+        // Initialize the client when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ASRStreamingClient();
+        });
+    </script>
+</body>
+</html>

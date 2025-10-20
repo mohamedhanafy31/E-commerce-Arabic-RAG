@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming TTS - تحويل النص إلى كلام مباشر</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .card-header h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .card-content {
+            padding: 2rem;
+        }
+
+        .input-section {
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+        }
+
+        .text-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+        }
+
+        .control-group select {
+            padding: 0.75rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            background: white;
+            transition: border-color 0.3s ease;
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border: 2px solid var(--gray-200);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--gray-200);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--error), #dc2626);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .status-section {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--gray-400);
+            transition: background-color 0.3s ease;
+        }
+
+        .status-dot.connecting {
+            background: var(--warning);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.streaming {
+            background: var(--success);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.playing {
+            background: var(--primary);
+            animation: pulse 1s infinite;
+        }
+
+        .status-dot.error {
+            background: var(--error);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .progress-container {
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: var(--gray-600);
+            margin-top: 0.5rem;
+        }
+
+        .audio-section {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .audio-section h3 {
+            margin-bottom: 1rem;
+            color: var(--gray-700);
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .volume-slider {
+            width: 100px;
+        }
+
+        .sample-texts {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .sample-btn {
+            padding: 0.5rem 1rem;
+            background: var(--gray-100);
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sample-btn:hover {
+            background: var(--gray-200);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .success-message {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .card-content {
+                padding: 1.5rem;
+            }
+
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Streaming TTS</h1>
+            <p>تحويل النص إلى كلام مباشر مع التشغيل التلقائي</p>
+        </div>
+
+        <div class="main-card">
+            <div class="card-header">
+                <h2>🎤 تحويل النص إلى كلام</h2>
+                <p>استمتع بتجربة البث المباشر للصوت مع التشغيل التلقائي</p>
+            </div>
+
+            <div class="card-content">
+                <!-- Error/Success Messages -->
+                <div id="messageContainer"></div>
+
+                <!-- Text Input Section -->
+                <div class="input-section">
+                    <div class="input-group">
+                        <label for="textInput">النص المراد تحويله</label>
+                        <textarea 
+                            id="textInput" 
+                            class="text-input" 
+                            placeholder="اكتب النص هنا... سيتم تقسيمه إلى جمل وتشغيله مباشرة"
+                            rows="4"
+                        ></textarea>
+                    </div>
+
+                    <!-- Sample Texts -->
+                    <div class="sample-texts">
+                        <button class="sample-btn" onclick="setSampleText('مرحبا بك في خدمة تحويل النص إلى كلام. هذا اختبار للبث المباشر!')">
+                            نص تجريبي قصير
+                        </button>
+                        <button class="sample-btn" onclick="setSampleText('مرحبا بك في خدمة تحويل النص إلى كلام. هذا اختبار للبث المباشر! هل يعمل بشكل صحيح؟ نأمل أن تكون التجربة ممتعة.')">
+                            نص تجريبي طويل
+                        </button>
+                        <button class="sample-btn" onclick="setSampleText('في حارة صغيرة في قلب القاهرة القديمة، كان فيه واحد اسمه عوضين، راجل بسيط شغال سمكري، بس عنده سر محدش يعرفه.')">
+                            قصة قصيرة
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-grid">
+                    <div class="control-group">
+                        <label for="voiceGender">نوع الصوت</label>
+                        <select id="voiceGender">
+                            <option value="male">ذكر</option>
+                            <option value="female">أنثى</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="languageCode">اللغة</label>
+                        <select id="languageCode">
+                            <option value="ar-XA">العربية (ar-XA)</option>
+                            <option value="ar-EG">العربية المصرية (ar-EG)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="audioEncoding">تنسيق الصوت</label>
+                        <select id="audioEncoding">
+                            <option value="MP3">MP3</option>
+                            <option value="OGG_OPUS">OGG Opus</option>
+                            <option value="LINEAR16">WAV</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="speakingRate">سرعة الكلام</label>
+                        <select id="speakingRate">
+                            <option value="0.8">بطيء</option>
+                            <option value="1.0" selected>عادي</option>
+                            <option value="1.2">سريع</option>
+                            <option value="1.5">سريع جداً</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="startBtn" class="btn btn-primary" onclick="startStreaming()">
+                        <span>🎵</span>
+                        <span>بدء البث المباشر</span>
+                    </button>
+                    <button id="stopBtn" class="btn btn-danger hidden" onclick="stopStreaming()">
+                        <span>⏹️</span>
+                        <span>إيقاف البث</span>
+                    </button>
+                    <button id="downloadBtn" class="btn btn-secondary hidden" onclick="downloadAudio()">
+                        <span>💾</span>
+                        <span>تحميل الصوت</span>
+                    </button>
+                </div>
+
+                <!-- Status Section -->
+                <div class="status-section">
+                    <div class="status-indicator">
+                        <div id="statusDot" class="status-dot"></div>
+                        <span id="statusText" class="status-text">جاهز للبدء</span>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                        <div id="progressText" class="progress-text">0%</div>
+                    </div>
+                </div>
+
+                <!-- Audio Section -->
+                <div class="audio-section">
+                    <h3>🎧 التحكم في الصوت</h3>
+                    <div class="audio-controls">
+                        <div class="volume-control">
+                            <span>🔊</span>
+                            <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.1" value="0.8">
+                            <span id="volumeValue">80%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let websocket = null;
+        let audioContext = null;
+        let audioQueue = [];
+        let isPlaying = false;
+        let audioChunks = [];
+        let currentVolume = 0.8;
+        let totalChunks = 0;
+        let receivedChunks = 0;
+
+        // Initialize audio context
+        async function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+        }
+
+        // Set sample text
+        function setSampleText(text) {
+            document.getElementById('textInput').value = text;
+        }
+
+        // Update status
+        function updateStatus(status, message = '') {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            statusDot.className = `status-dot ${status}`;
+            
+            const messages = {
+                'idle': 'جاهز للبدء',
+                'connecting': 'جاري الاتصال...',
+                'streaming': `جاري البث... ${message}`,
+                'playing': `جاري التشغيل... ${message}`,
+                'complete': 'تم الانتهاء',
+                'error': `خطأ: ${message}`
+            };
+            
+            statusText.textContent = messages[status] || message;
+        }
+
+        // Update progress
+        function updateProgress(current, total) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+            progressFill.style.width = `${percentage}%`;
+            progressText.textContent = `${percentage}%`;
+        }
+
+        // Show message
+        function showMessage(message, type = 'error') {
+            const container = document.getElementById('messageContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
+            
+            container.innerHTML = '';
+            container.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Play audio chunk
+        async function playAudioChunk(audioData) {
+            try {
+                await initAudioContext();
+                
+                const arrayBuffer = await audioData.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                const source = audioContext.createBufferSource();
+                const gainNode = audioContext.createGain();
+                
+                source.buffer = audioBuffer;
+                gainNode.gain.value = currentVolume;
+                
+                source.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                source.start();
+                
+                console.log(`Playing audio chunk: ${audioBuffer.duration.toFixed(2)}s`);
+                
+                return source;
+            } catch (error) {
+                console.error('Error playing audio chunk:', error);
+                return null;
+            }
+        }
+
+        // Play next in queue
+        async function playNextInQueue() {
+            if (audioQueue.length > 0 && !isPlaying) {
+                isPlaying = true;
+                updateStatus('playing', 'تشغيل مباشر');
+                
+                const audioData = audioQueue.shift();
+                const source = await playAudioChunk(audioData);
+                
+                if (source) {
+                    source.onended = () => {
+                        isPlaying = false;
+                        if (audioQueue.length > 0) {
+                            setTimeout(() => playNextInQueue(), 100);
+                        } else {
+                            updateStatus('streaming', 'انتظار المزيد...');
+                        }
+                    };
+                } else {
+                    isPlaying = false;
+                    updateStatus('streaming', 'انتظار المزيد...');
+                    if (audioQueue.length > 0) {
+                        setTimeout(() => playNextInQueue(), 200);
+                    }
+                }
+            }
+        }
+
+        // Add audio to queue
+        function addAudioToQueue(audioData) {
+            audioQueue.push(audioData);
+            if (!isPlaying) {
+                playNextInQueue();
+            }
+        }
+
+        // Clear audio queue
+        function clearAudioQueue() {
+            audioQueue = [];
+            isPlaying = false;
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+        }
+
+        // Start streaming
+        async function startStreaming() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) {
+                showMessage('يرجى إدخال نص للتحويل', 'error');
+                return;
+            }
+
+            // Clear previous state
+            clearAudioQueue();
+            audioChunks = [];
+            receivedChunks = 0;
+            totalChunks = 0;
+
+            // Update UI
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').classList.remove('hidden');
+            document.getElementById('downloadBtn').classList.add('hidden');
+            
+            updateStatus('connecting');
+            updateProgress(0, 0);
+
+            try {
+                // Create WebSocket connection
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/tts-stream`;
+                
+                websocket = new WebSocket(wsUrl);
+                
+                websocket.onopen = function() {
+                    console.log('WebSocket connected');
+                    updateStatus('streaming', 'متصل');
+                    
+                    // Send request
+                    const request = {
+                        text: text,
+                        language_code: document.getElementById('languageCode').value,
+                        voice_gender_choice: document.getElementById('voiceGender').value,
+                        audio_encoding: document.getElementById('audioEncoding').value,
+                        speaking_rate: parseFloat(document.getElementById('speakingRate').value)
+                    };
+                    
+                    websocket.send(JSON.stringify(request));
+                };
+                
+                websocket.onmessage = async function(event) {
+                    if (typeof event.data === 'string') {
+                        const message = JSON.parse(event.data);
+                        
+                        if (message.type === 'metadata') {
+                            totalChunks = message.total_chunks;
+                            updateStatus('streaming', `الصوت: ${message.voice_used}`);
+                            updateProgress(0, totalChunks);
+                            console.log(`Starting stream: ${totalChunks} chunks expected`);
+                            
+                        } else if (message.type === 'complete') {
+                            updateStatus('complete');
+                            updateProgress(message.successful_chunks, message.successful_chunks + message.failed_chunks);
+                            
+                            showMessage(`تم البث بنجاح: ${message.successful_chunks} أجزاء ناجحة، ${message.failed_chunks} فاشلة`, 'success');
+                            
+                            // Show download button
+                            if (audioChunks.length > 0) {
+                                document.getElementById('downloadBtn').classList.remove('hidden');
+                            }
+                            
+                        } else if (message.type === 'error') {
+                            updateStatus('error', message.detail);
+                            showMessage(`خطأ في البث: ${message.detail}`, 'error');
+                        }
+                    } else {
+                        // Binary audio data
+                        const audioData = event.data;
+                        audioChunks.push(audioData);
+                        receivedChunks++;
+                        
+                        // Convert to blob and add to playback queue
+                        const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+                        addAudioToQueue(audioBlob);
+                        
+                        // Update progress
+                        updateProgress(receivedChunks, totalChunks || receivedChunks + 1);
+                        
+                        console.log(`Received and queued audio chunk ${receivedChunks}`);
+                    }
+                };
+                
+                websocket.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    updateStatus('error', 'خطأ في الاتصال');
+                    showMessage('خطأ في الاتصال بالخادم', 'error');
+                    clearAudioQueue();
+                };
+                
+                websocket.onclose = function() {
+                    console.log('WebSocket disconnected');
+                    websocket = null;
+                };
+                
+            } catch (error) {
+                console.error('Streaming error:', error);
+                updateStatus('error', error.message);
+                showMessage(`خطأ في البث: ${error.message}`, 'error');
+                clearAudioQueue();
+            }
+        }
+
+        // Stop streaming
+        function stopStreaming() {
+            // Close WebSocket
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+            
+            // Clear audio queue
+            clearAudioQueue();
+            
+            // Reset UI
+            updateStatus('idle');
+            updateProgress(0, 0);
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').classList.add('hidden');
+            
+            showMessage('تم إيقاف البث', 'success');
+        }
+
+        // Download audio
+        function downloadAudio() {
+            if (audioChunks.length === 0) {
+                showMessage('لا يوجد صوت للتحميل', 'error');
+                return;
+            }
+            
+            const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            const link = document.createElement('a');
+            link.href = audioUrl;
+            link.download = `streaming-tts-${Date.now()}.mp3`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(audioUrl);
+            showMessage('تم تحميل الصوت بنجاح', 'success');
+        }
+
+        // Volume control
+        document.getElementById('volumeSlider').addEventListener('input', function(e) {
+            currentVolume = parseFloat(e.target.value);
+            document.getElementById('volumeValue').textContent = Math.round(currentVolume * 100) + '%';
+        });
+
+        // Initialize
+        updateStatus('idle');
+        updateProgress(0, 0);
+    </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+
+.git
+.gitignore
+.github
+
+.env
+.env.*
+
+build/
+dist/
+.cache/
+
+# Exclude runtime data; mount as volumes instead
+/data/documents/
+/data/vector_store/
+/temp/
+*.log
+
+.vscode
+.idea
+/tests

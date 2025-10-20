@@ -1,0 +1,40 @@
+# Simple Arabic RAG System - Requirements
+# Core dependencies for file upload, chunking, embedding, retrieval, and generation
+# 
+# NOTE: These versions are tested and compatible with each other
+# Fixed NumPy/Pandas compatibility issue (NumPy 2.2.6 + Pandas 2.3.3)
+
+# Web Framework
+fastapi>=0.119.0
+uvicorn[standard]>=0.38.0
+python-multipart>=0.0.20
+
+# Data Processing
+numpy>=2.2.6
+pydantic>=2.12.3
+ujson>=5.11.0
+python-dotenv>=1.1.1
+
+# Machine Learning & Embeddings
+sentence-transformers>=5.1.1
+torch>=2.7.1
+transformers>=4.57.1
+
+# Vector Search
+faiss-cpu>=1.12.0
+# For GPU support, use: faiss-gpu>=1.7.2
+
+# File Processing
+PyPDF2>=3.0.1
+python-docx>=1.2.0
+
+# HTTP Client
+httpx>=0.28.1
+
+# Optional: For better PDF processing
+# pypdf>=3.0.0
+# pdfplumber>=0.9.0
+
+# Optional: For advanced text processing
+# nltk>=3.8.0
+# spacy>=3.6.0

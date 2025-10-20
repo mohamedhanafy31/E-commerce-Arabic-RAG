@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إدارة المستندات - Simple Arabic RAG</title>
+  <style>
+    :root { --bg:#0b1020; --panel:#0f172a; --muted:#94a3b8; --text:#f1f5f9; --accent:#22c55e; --danger:#ef4444; --border:#1f2937; --surface:#0b1220; --primary:#22c55e; --primary-contrast:#0b1220; --focus-ring:rgba(59,130,246,.35); --shadow-elevated:rgba(0,0,0,.3); --primary-glow-inset:rgba(34,197,94,.2); --primary-glow-hover:rgba(34,197,94,.25); --answer-fade-top:rgba(11,18,32,0); --answer-fade-bottom:rgba(11,18,32,1); --scrim:rgba(0,0,0,.5); }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial; background: var(--bg); color: var(--text); }
+    header { padding: 20px 24px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    h1 { font-size: 22px; margin:0; letter-spacing: .2px; }
+    main { max-width: 1100px; margin: 28px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr; gap: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: stretch; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display:flex; flex-direction:column; justify-content:space-between; }
+    .card.top { min-height: 160px; }
+    .card h2 { margin: 0 0 12px; font-size: 18px; color: var(--text); }
+    .subtitle { font-size: 13px; color: var(--muted); }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px 12px; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:10px; }
+    input[type="file"] { color: var(--muted); }
+    button { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:10px 14px; border-radius:10px; cursor:pointer; transition: opacity .2s ease; }
+    button.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-contrast); box-shadow: 0 0 0 1px var(--primary-glow-inset) inset; }
+    button.danger { background: transparent; color:var(--danger); border-color:var(--danger); }
+    button.primary:hover { filter: brightness(1.05); box-shadow: 0 6px 16px var(--primary-glow-hover); }
+    button:focus { outline: none; box-shadow: 0 0 0 2px var(--focus-ring); }
+    .btn-lg { padding:12px 18px; border-radius:12px; font-weight:600; }
+    .btn-secondary { background:var(--surface); border:1px solid var(--border); color:var(--text); }
+    .btn-secondary:hover { background:var(--panel); }
+    button[disabled] { opacity:.6; cursor:not-allowed; }
+    .muted { color: var(--muted); font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { text-align: right; padding: 10px 12px; border-bottom: 1px solid var(--border); direction: rtl; }
+    /* Prevent text from overflowing into adjacent columns */
+    .docs-table th, .docs-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Keep action buttons on one line */
+    .table-actions { white-space: nowrap; }
+    thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .sources { white-space: pre-wrap; font-size: 12px; color: var(--muted); }
+    .badge { display:inline-block; padding:2px 8px; border-radius: 999px; background:var(--surface); border:1px solid var(--border); font-size:12px; color:var(--muted); }
+    .flex-between { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .scroll-area { overflow:auto; max-height: 420px; border: 1px solid var(--border); border-radius: 10px; }
+    .btn-icon { display:inline-flex; align-items:center; gap:6px; }
+    .btn-icon .i { filter: invert(90%); opacity:.9; }
+    .i { font-style: normal; }
+    /* Toast refine */
+    #toast { top: 16px; bottom: auto; border-color:var(--border); }
+    #toast.toast--ok { color: var(--accent); }
+    #toast.toast--error { color: var(--danger); }
+    /* Answer box clamp */
+    .answer-wrap { position: relative; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+    .answer-box { max-height: 280px; overflow:auto; padding:12px; }
+    .answer-box.collapsed { max-height: 180px; overflow:hidden; }
+    .answer-box.collapsed:after { content:""; position:absolute; left:0; right:0; bottom:0; height:48px; background:linear-gradient(180deg, var(--answer-fade-top), var(--answer-fade-bottom)); pointer-events:none; }
+    .answer-actions { display:flex; gap:8px; justify-content:flex-end; padding:8px 12px; border-top:1px solid var(--border); }
+    .sources-list { list-style: decimal; padding-inline-start: 18px; margin:0; }
+    .source-item { margin: 0 0 10px; }
+    .file-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .file-name { color: var(--muted); font-size: 12px; }
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:var(--scrim); display:none; align-items:center; justify-content:center; z-index:1000; }
+    .modal { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; width:90%; max-width:420px; color:var(--text); }
+    .modal h3 { margin:0 0 8px; font-size:16px; }
+    .modal .row { justify-content:flex-end; }
+    /* Spinner on buttons */
+    .loading { position:relative; pointer-events:none; opacity:.85; }
+    .loading::after { content:""; position:absolute; right:10px; top:50%; width:14px; height:14px; margin-top:-7px; border:2px solid var(--muted); border-top-color:var(--primary); border-radius:50%; animation:spin .8s linear infinite; }
+    /* Status helper classes */
+    .status--ok { color: var(--accent); }
+    .status--error { color: var(--danger); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script>
+    // Simple toast
+    function toast(text, ok = true) {
+      let t = document.getElementById('toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.position = 'fixed';
+        t.style.bottom = '20px';
+        t.style.left = '50%';
+        t.style.transform = 'translateX(-50%)';
+        t.style.background = 'var(--surface)';
+        t.style.border = '1px solid var(--border)';
+        t.style.padding = '10px 14px';
+        t.style.borderRadius = '8px';
+        t.style.boxShadow = '0 10px 30px var(--shadow-elevated)';
+        document.body.appendChild(t);
+      }
+      t.classList.toggle('toast--ok', !!ok);
+      t.classList.toggle('toast--error', !ok);
+      t.textContent = text;
+      t.style.display = 'block';
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2500);
+    }
+    const api = {
+      base: window.location.origin,
+      upload: "/upload",
+      list: "/documents",
+      update: "/documents",
+      deleteById: (id) => `/documents/${id}`,
+      updateById: (id) => `/documents/${id}`,
+      deleteByName: "/documents",
+      query: "/query",
+      reset: "/reset",
+    };
+
+    // Documents cache for client-side filtering
+    let __docsCache = [];
+
+    // Two themes: night/day
+    const THEMES = {
+      night: { '--bg':'#0b1020','--panel':'#0f172a','--muted':'#94a3b8','--text':'#f1f5f9','--accent':'#22c55e','--danger':'#ef4444','--border':'#1f2937','--surface':'#0b1220','--primary':'#22c55e','--primary-contrast':'#0b1220','--focus-ring':'rgba(59,130,246,.35)','--shadow-elevated':'rgba(0,0,0,.3)','--primary-glow-inset':'rgba(34,197,94,.2)','--primary-glow-hover':'rgba(34,197,94,.25)','--answer-fade-top':'rgba(11,18,32,0)','--answer-fade-bottom':'rgba(11,18,32,1)','--scrim':'rgba(0,0,0,.5)' },
+      day:   { '--bg':'#f7fafc','--panel':'#ffffff','--muted':'#64748b','--text':'#0f172a','--accent':'#0ea5e9','--danger':'#dc2626','--border':'#e5e7eb','--surface':'#f8fafc','--primary':'#0ea5e9','--primary-contrast':'#072436','--focus-ring':'rgba(2,132,199,.35)','--shadow-elevated':'rgba(0,0,0,.12)','--primary-glow-inset':'rgba(14,165,233,.2)','--primary-glow-hover':'rgba(14,165,233,.25)','--answer-fade-top':'rgba(247,250,252,0)','--answer-fade-bottom':'rgba(247,250,252,1)','--scrim':'rgba(15,23,42,.35)' }
+    };
+
+    function applyTheme(name) {
+      const palette = THEMES[name] || THEMES.night;
+      Object.entries(palette).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
+      try { localStorage.setItem('ui.theme', name); } catch (_) {}
+    }
+
+    function toggleTheme() {
+      let current = 'night';
+      try { current = localStorage.getItem('ui.theme') || 'night'; } catch (_) {}
+      const next = current === 'night' ? 'day' : 'night';
+      applyTheme(next);
+      const lbl = document.getElementById('theme-label');
+      const btn = document.getElementById('theme-toggle');
+      if (lbl) lbl.textContent = next === 'night' ? 'ليل' : 'نهار';
+      if (btn) btn.querySelector('.i').textContent = next === 'night' ? '🌙' : '☀️';
+    }
+
+    async function fetchJSON(url, options = {}) {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+
+    function setStatus(elId, text, ok = true) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = text;
+      el.classList.toggle('status--ok', !!ok);
+      el.classList.toggle('status--error', !ok);
+    }
+
+    async function doUpload() {
+      const fileInput = document.getElementById('upload-file');
+      if (!fileInput.files.length) { setStatus('upload-status', 'الرجاء اختيار ملف', false); return; }
+      const form = new FormData();
+      form.append('file', fileInput.files[0]);
+      try {
+        setStatus('upload-status', 'يرفع...');
+        const btn = document.getElementById('btn-upload');
+        btn.disabled = true; btn.classList.add('loading');
+        const data = await fetchJSON(api.upload, { method: 'POST', body: form });
+        setStatus('upload-status', `تم: file_id=${data.file_id}, أجزاء=${data.chunks_created}`);
+        toast('تم رفع الملف بنجاح');
+        await loadDocuments();
+      } catch (e) { setStatus('upload-status', e.message, false); toast('فشل رفع الملف', false); }
+      finally { const btn = document.getElementById('btn-upload'); btn.disabled = false; btn.classList.remove('loading'); }
+    }
+
+    async function loadDocuments() {
+      try {
+        const res = await fetchJSON(api.list);
+        __docsCache = Array.isArray(res.documents) ? res.documents : [];
+        renderDocuments();
+        document.getElementById('docs-total').textContent = __docsCache.length;
+      } catch (e) {
+        setStatus('docs-status', e.message, false);
+      }
+    }
+
+    function renderDocuments() {
+      const tbody = document.getElementById('docs-body');
+      // Loading state when cache not yet available
+      if (!Array.isArray(__docsCache)) {
+        tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center">جاري تحميل المستندات…</td></tr>';
+        return;
+      }
+      const q = (document.getElementById('docs-filter')?.value || '').trim().toLowerCase();
+      tbody.innerHTML = '';
+      const filtered = __docsCache.filter(d => {
+        if (!q) return true;
+        const fields = [d.file_id || '', d.filename || '', d.file_type || ''];
+        return fields.some(v => String(v).toLowerCase().includes(q));
+      });
+      if (!filtered.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 6;
+        td.className = 'muted';
+        td.style.textAlign = 'center';
+        td.textContent = (__docsCache.length === 0 && !q) ? 'لم يتم رفع أي مستند بعد 📂' : 'لا توجد مستندات تطابق بحثك';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+      for (const d of filtered) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono" title="${d.file_id}">${d.file_id}</td>
+          <td title="${d.filename}">${d.filename}</td>
+          <td>${d.file_type}</td>
+          <td>${d.chunk_count}</td>
+          <td class="muted">${d.upload_time}</td>
+          <td>
+            <div class="row table-actions" style="justify-content:flex-end">
+              <button title="تحديث" class="btn-icon" onclick="document.getElementById('upd-${d.file_id}').click()"><span class="i">🔄</span></button>
+              <input id="upd-${d.file_id}" type="file" style="display:none" onchange="updateRow('${d.file_id}', this.files[0])" accept=".txt,.pdf,.docx,.md" />
+              <button title="حذف" class="danger btn-icon" onclick="openDeleteModal('${d.file_id}')"><span class="i">🗑️</span></button>
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+      }
+      const totalEl = document.getElementById('docs-total');
+      if (totalEl) totalEl.textContent = filtered.length;
+    }
+
+    function onDocsFilterInput() {
+      const input = document.getElementById('docs-filter');
+      const btn = document.getElementById('docs-filter-clear');
+      if (btn) btn.style.display = input && input.value ? 'block' : 'none';
+      renderDocuments();
+    }
+
+    function onFileChosen(input) {
+      const span = document.getElementById('upload-file-name');
+      if (!span || !input) return;
+      const name = input.files && input.files[0] ? input.files[0].name : 'لم يتم اختيار ملف';
+      span.textContent = name;
+    }
+
+    function onUpdateFileChosen(input) {
+      const span = document.getElementById('update-file-name');
+      if (!span || !input) return;
+      const name = input.files && input.files[0] ? input.files[0].name : 'لم يتم اختيار ملف';
+      span.textContent = name;
+    }
+
+    function clearDocsFilter() {
+      const input = document.getElementById('docs-filter');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      const btn = document.getElementById('docs-filter-clear');
+      if (btn) btn.style.display = 'none';
+      renderDocuments();
+    }
+
+    async function doReset() {
+      try {
+        const confirmed = window.confirm('سيتم حذف جميع المتجهات والبيانات. هل أنت متأكد؟');
+        if (!confirmed) return;
+        const btn = document.getElementById('btn-reset');
+        if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+        const res = await fetch(api.reset, { method: 'POST' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        toast('تمت إعادة الضبط');
+        setStatus('docs-status', 'تمت إعادة الضبط');
+        await loadDocuments();
+      } catch (e) {
+        toast('فشل إعادة الضبط: ' + (e && e.message ? e.message : e), false);
+        setStatus('docs-status', 'فشل إعادة الضبط', false);
+      } finally {
+        const btn = document.getElementById('btn-reset');
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+      }
+    }
+
+    // Confirmation modal state
+    let __pendingDeleteId = null;
+
+    function openDeleteModal(id) {
+      __pendingDeleteId = id;
+      const bd = document.getElementById('modal-backdrop');
+      if (bd) bd.style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+      const bd = document.getElementById('modal-backdrop');
+      if (bd) bd.style.display = 'none';
+      __pendingDeleteId = null;
+    }
+
+    async function confirmDelete() {
+      if (!__pendingDeleteId) return;
+      try {
+        const res = await fetchJSON(api.deleteById(__pendingDeleteId), { method: 'DELETE' });
+        setStatus('docs-status', `حذف ${res.chunks_deleted} جزء`);
+        await loadDocuments();
+      } catch (e) { setStatus('docs-status', e.message, false); }
+      finally { closeDeleteModal(); }
+    }
+
+    // removed delete-by-name flow (redundant)
+
+    async function updateRow(fileId, file) {
+      if (!file) return;
+      try {
+        toast('يتم تحديث المستند...');
+        const form = new FormData();
+        form.append('file', file);
+        const data = await fetchJSON(api.updateById(fileId), { method: 'PUT', body: form });
+        toast(`تم التحديث: ${data.status === 'unchanged' ? 'لا تغيير' : 'نجاح'}`);
+        await loadDocuments();
+      } catch (e) { toast('فشل التحديث', false); }
+    }
+
+    async function doUpdate() {
+      const fileInput = document.getElementById('update-file');
+      if (!fileInput.files.length) { setStatus('update-status', 'الرجاء اختيار ملف', false); return; }
+      const form = new FormData();
+      form.append('file', fileInput.files[0]);
+      try {
+        setStatus('update-status', 'يحدّث...');
+        const btn = document.getElementById('btn-update');
+        btn.disabled = true; btn.classList.add('loading');
+        const data = await fetchJSON(api.update, { method: 'PUT', body: form });
+        setStatus('update-status', `تم: ${data.status}, أجزاء محدثة=${data.chunks_updated ?? 0}`);
+        toast('تم تحديث المستند');
+        await loadDocuments();
+      } catch (e) { setStatus('update-status', e.message, false); toast('فشل التحديث', false); }
+      finally { const btn = document.getElementById('btn-update'); btn.disabled = false; btn.classList.remove('loading'); }
+    }
+
+    async function doQuery() {
+      const q = document.getElementById('query-text').value.trim();
+      const k = Number(document.getElementById('query-k').value || 5);
+      const model = document.getElementById('query-model').value;
+      if (!q) { setStatus('query-status', 'أدخل سؤالاً', false); return; }
+      try {
+        setStatus('query-status', 'يجري البحث والتوليد...');
+        const btn = document.getElementById('btn-query');
+        if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+        const data = await fetchJSON(api.query, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, max_results: k, model_choice: model }) });
+        document.getElementById('answer').textContent = data.answer;
+        document.getElementById('answer-meta').textContent = `نموذج: ${data.model_used} | الزمن: ${data.processing_time_ms}ms`;
+        const list = document.getElementById('sources-list');
+        list.innerHTML = '';
+        (data.sources || []).forEach((s, i) => {
+          const li = document.createElement('li');
+          li.className = 'source-item';
+          const sim = (s.similarity_score ?? 0).toFixed(3);
+          li.textContent = `${s.filename} [${s.chunk_index}] (sim=${sim}) — ${s.preview}`;
+          list.appendChild(li);
+        });
+        if (!list.children.length) {
+          const li = document.createElement('li');
+          li.className = 'source-item muted';
+          li.textContent = 'لا توجد مصادر.';
+          list.appendChild(li);
+        }
+        setStatus('query-status', 'تم');
+        toast('تم التوليد');
+      } catch (e) { setStatus('query-status', e.message, false); toast('فشل التوليد', false); }
+      finally { const btn = document.getElementById('btn-query'); if (btn) { btn.disabled = false; btn.classList.remove('loading'); } }
+    }
+
+    function toggleAnswer() {
+      const pre = document.getElementById('answer');
+      const btn = document.getElementById('btn-toggle-answer');
+      if (!pre || !btn) return;
+      const collapsed = pre.classList.contains('collapsed');
+      if (collapsed) {
+        pre.classList.remove('collapsed');
+        btn.textContent = 'عرض أقل';
+      } else {
+        pre.classList.add('collapsed');
+        btn.textContent = 'عرض المزيد';
+      }
+    }
+
+    async function copyAnswer() {
+      const pre = document.getElementById('answer');
+      if (!pre) return;
+      try {
+        await navigator.clipboard.writeText(pre.textContent || '');
+        toast('تم نسخ الإجابة');
+      } catch (e) {
+        toast('تعذر النسخ', false);
+      }
+    }
+
+    function switchTab(which) {
+      const docs = document.getElementById('tab-content-docs');
+      const query = document.getElementById('tab-content-query');
+      const btnDocs = document.getElementById('tab-docs');
+      const btnQuery = document.getElementById('tab-query');
+      if (!docs || !query || !btnDocs || !btnQuery) return;
+      const showDocs = which === 'docs';
+      docs.style.display = showDocs ? 'block' : 'none';
+      query.style.display = showDocs ? 'none' : 'block';
+      btnDocs.classList.toggle('primary', showDocs);
+      btnQuery.classList.toggle('primary', !showDocs);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // apply persisted theme or default to night
+      try {
+        const saved = localStorage.getItem('ui.theme');
+        if (saved) applyTheme(saved); else applyTheme('night');
+      } catch (_) { applyTheme('night'); }
+      loadDocuments();
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <h1>إدارة المستندات - Simple Arabic RAG</h1>
+    <div class="badge">واجهة إدارية</div>
+  </header>
+  <main>
+    <!-- Tabs header -->
+    <section class="card" style="padding-bottom:8px">
+      <div class="row" style="justify-content:space-between">
+        <div class="row" style="gap:8px">
+          <button id="tab-docs" class="btn-icon" onclick="switchTab('docs')">📄 إدارة المستندات</button>
+          <button id="tab-query" class="btn-icon" onclick="switchTab('query')">💬 الاستعلام والتوليد</button>
+        </div>
+        <div class="row" style="gap:8px">
+          <button id="theme-toggle" class="btn-icon" onclick="toggleTheme()"><span class="i">🌙</span><span id="theme-label">ليل</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab: Documents -->
+    <section id="tab-content-docs" class="card">
+      <h2 style="border-bottom:1px solid var(--border); padding-bottom:8px">📄 إدارة المستندات</h2>
+      <div class="grid" style="margin-top:12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+        <div class="card top">
+          <h2>رفع مستند جديد</h2>
+          <div class="file-actions">
+            <label class="btn-secondary btn-lg btn-icon" style="cursor:pointer">
+              <span class="i">📄</span> اختر ملف
+              <input id="upload-file" type="file" accept=".txt,.pdf,.docx,.md" style="display:none" onchange="onFileChosen(this)" />
+            </label>
+            <button id="btn-upload" class="primary btn-icon btn-lg" onclick="doUpload()"><span class="i">📤</span>رفع</button>
+            <span id="upload-file-name" class="file-name">لم يتم اختيار ملف</span>
+          </div>
+          <div id="upload-status" class="muted" style="margin-top:8px"></div>
+        </div>
+        <div class="card top">
+          <h2>تحديث مستند</h2>
+          <div class="file-actions">
+            <label class="btn-secondary btn-lg btn-icon" style="cursor:pointer">
+              <span class="i">📄</span> اختر ملف
+              <input id="update-file" type="file" accept=".txt,.pdf,.docx,.md" style="display:none" onchange="onUpdateFileChosen(this)" />
+            </label>
+            <button id="btn-update" class="btn-icon btn-lg primary" onclick="doUpdate()"><span class="i">🔄</span>تحديث</button>
+            <span id="update-file-name" class="file-name">لم يتم اختيار ملف</span>
+          </div>
+          <div class="subtitle">إذا كان المحتوى نفسه لن يتم إجراء أي تغيير</div>
+          <div id="update-status" class="muted" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="flex-between" style="margin-top:12px">
+        <h2>قائمة المستندات (<span id="docs-total">0</span>)</h2>
+      </div>
+      <div class="row" style="gap:8px; align-items:center; margin-top:8px">
+        <div style="position:relative; max-width:320px; width:100%">
+          <input id="docs-filter" type="text" placeholder="فلترة بالاسم أو المعرف أو النوع" oninput="onDocsFilterInput()" style="max-width:320px; width:100%; padding-right:28px" />
+          <button id="docs-filter-clear" title="مسح" onclick="clearDocsFilter()" style="display:none; position:absolute; right:8px; top:50%; transform: translateY(-50%); width:22px; height:22px; line-height:18px; text-align:center; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer">×</button>
+        </div>
+        <div id="docs-status" class="muted"></div>
+        <div style="flex:1"></div>
+        <button id="btn-reset" class="danger btn-icon" title="مسح الكل" onclick="doReset()"><span class="i">🧹</span>مسح الكل</button>
+      </div>
+      <div class="scroll-area" style="margin-top:8px">
+        <table class="docs-table" style="font-size:13px">
+          <colgroup>
+            <col style="width:26%"> <!-- file_id -->
+            <col style="width:30%"> <!-- name -->
+            <col style="width:10%"> <!-- type -->
+            <col style="width:8%">  <!-- chunks -->
+            <col style="width:16%"> <!-- upload time -->
+            <col style="width:10%"> <!-- actions -->
+          </colgroup>
+          <thead>
+            <tr>
+              <th>file_id</th>
+              <th>الاسم</th>
+              <th>النوع</th>
+              <th>الأجزاء</th>
+              <th>وقت الرفع</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="docs-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab: Query -->
+    <section id="tab-content-query" class="card" style="display:none">
+      <h2 style="border-bottom:1px solid var(--border); padding-bottom:8px">💬 الاستعلام والتوليد</h2>
+      <div class="row" style="margin-bottom:8px; margin-top:12px">
+        <input id="query-text" type="text" placeholder="اكتب سؤالك بالعربية" />
+      </div>
+      <div class="row" style="margin-bottom:8px; gap:14px">
+        <label class="muted">عدد المصادر:
+          <input id="query-k" type="number" min="1" max="20" value="5" style="max-width:120px" />
+        </label>
+        <label class="muted">الموديل:
+          <select id="query-model" style="padding:10px; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px">
+            <option value="ollama">Ollama</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </label>
+        <button id="btn-query" class="primary btn-icon" onclick="doQuery()"><span class="i">📩</span>إرسال</button>
+        <div id="query-status" class="muted"></div>
+      </div>
+      <div class="row" style="align-items:flex-start">
+        <div style="flex:2; display:flex; flex-direction:column; gap:8px">
+          <div class="muted" id="answer-meta"></div>
+          <div class="answer-wrap">
+            <pre id="answer" class="mono answer-box collapsed" style="white-space: pre-wrap"></pre>
+            <div class="answer-actions">
+              <button id="btn-toggle-answer" onclick="toggleAnswer()">عرض المزيد</button>
+              <button onclick="copyAnswer()">نسخ</button>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1">
+          <h3 style="margin-top:0">المصادر</h3>
+          <ol id="sources-list" class="sources-list"></ol>
+        </div>
+      </div>
+    </section>
+  </main>
+  <!-- Delete confirmation modal -->
+  <div id="modal-backdrop" class="modal-backdrop" onclick="closeDeleteModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>تأكيد الحذف</h3>
+      <p class="muted">سيتم حذف المستند وجميع أجزائه نهائيًا.</p>
+      <div class="row">
+        <button onclick="closeDeleteModal()">إلغاء</button>
+        <button class="danger" onclick="confirmDelete()">حذف</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
+

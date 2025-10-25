@@ -387,10 +387,10 @@ steps:
         import json
         
         services = {
-            'RAG System': '$$RAG_URL/health',
-            'ASR API': '$$ASR_URL/health',
-            'TTS API': '$$TTS_URL/health',
-            'Orchestrator': '$$ORCHESTRATOR_URL/health'
+            'RAG System': \"$$RAG_URL/health\",
+            'ASR API': \"$$ASR_URL/health\",
+            'TTS API': \"$$TTS_URL/health\",
+            'Orchestrator': \"$$ORCHESTRATOR_URL/health\"
         }
         
         healthy_count = 0

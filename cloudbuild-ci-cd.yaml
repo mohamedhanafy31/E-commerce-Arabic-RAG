@@ -443,7 +443,7 @@ steps:
         echo "  TTS API: $$TTS_URL"
         echo "  Orchestrator: $$ORCHESTRATOR_URL"
         echo ""
-        echo "🧪 Test the system at: $ORCHESTRATOR_URL/test"
+        echo "🧪 Test the system at: $$ORCHESTRATOR_URL/test"
 
 # Substitution variables (set these in Cloud Build trigger)
 substitutions:

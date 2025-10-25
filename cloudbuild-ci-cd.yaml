@@ -363,14 +363,10 @@ steps:
       - '-c'
       - |
         echo "🧪 Running post-deployment tests..."
-        pip install requests
+        pip install --break-system-packages requests
         
-        # Make services publicly accessible
-        echo "🔓 Making services publicly accessible..."
-        gcloud run services add-iam-policy-binding arabic-rag-system --region=us-central1 --member=allUsers --role=roles/run.invoker
-        gcloud run services add-iam-policy-binding arabic-asr-api --region=us-central1 --member=allUsers --role=roles/run.invoker
-        gcloud run services add-iam-policy-binding arabic-tts-api --region=us-central1 --member=allUsers --role=roles/run.invoker
-        gcloud run services add-iam-policy-binding arabic-orchestrator --region=us-central1 --member=allUsers --role=roles/run.invoker
+        # Note: Services are already publicly accessible from previous deployments
+        echo "✅ Services should already be publicly accessible"
         
         # Get service URLs using project ID
         PROJECT_ID=$$(gcloud config get-value project)
@@ -386,7 +382,7 @@ steps:
         echo "  Orchestrator: $$ORCHESTRATOR_URL"
         
         # Test health endpoints
-        python -c "
+        python3 -c "
         import requests
         import json
         

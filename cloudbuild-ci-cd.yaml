@@ -365,11 +365,12 @@ steps:
         echo "🧪 Running post-deployment tests..."
         pip install requests
         
-        # Get service URLs
-        RAG_URL=$$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
-        ASR_URL=$$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
-        TTS_URL=$$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
-        ORCHESTRATOR_URL=$$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+        # Get service URLs using project ID
+        PROJECT_ID=$$(gcloud config get-value project)
+        RAG_URL="https://arabic-rag-system-$${PROJECT_ID}.us-central1.run.app"
+        ASR_URL="https://arabic-asr-api-$${PROJECT_ID}.us-central1.run.app"
+        TTS_URL="https://arabic-tts-api-$${PROJECT_ID}.us-central1.run.app"
+        ORCHESTRATOR_URL="https://arabic-orchestrator-$${PROJECT_ID}.us-central1.run.app"
         
         echo "🌐 Service URLs:"
         echo "  RAG System: $$RAG_URL"
@@ -430,11 +431,12 @@ steps:
         echo "📊 Build ID: $BUILD_ID"
         echo "🕒 Timestamp: $(date)"
         
-        # Get final service URLs
-        RAG_URL=$$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
-        ASR_URL=$$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
-        TTS_URL=$$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
-        ORCHESTRATOR_URL=$$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+        # Get final service URLs using project ID
+        PROJECT_ID=$$(gcloud config get-value project)
+        RAG_URL="https://arabic-rag-system-$${PROJECT_ID}.us-central1.run.app"
+        ASR_URL="https://arabic-asr-api-$${PROJECT_ID}.us-central1.run.app"
+        TTS_URL="https://arabic-tts-api-$${PROJECT_ID}.us-central1.run.app"
+        ORCHESTRATOR_URL="https://arabic-orchestrator-$${PROJECT_ID}.us-central1.run.app"
         
         echo ""
         echo "🌐 Live Service URLs:"

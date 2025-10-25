@@ -365,6 +365,13 @@ steps:
         echo "🧪 Running post-deployment tests..."
         pip install requests
         
+        # Make services publicly accessible
+        echo "🔓 Making services publicly accessible..."
+        gcloud run services add-iam-policy-binding arabic-rag-system --region=us-central1 --member=allUsers --role=roles/run.invoker
+        gcloud run services add-iam-policy-binding arabic-asr-api --region=us-central1 --member=allUsers --role=roles/run.invoker
+        gcloud run services add-iam-policy-binding arabic-tts-api --region=us-central1 --member=allUsers --role=roles/run.invoker
+        gcloud run services add-iam-policy-binding arabic-orchestrator --region=us-central1 --member=allUsers --role=roles/run.invoker
+        
         # Get service URLs using project ID
         PROJECT_ID=$$(gcloud config get-value project)
         RAG_URL="https://arabic-rag-system-$${PROJECT_ID}.us-central1.run.app"

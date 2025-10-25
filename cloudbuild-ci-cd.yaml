@@ -357,7 +357,7 @@ steps:
         echo "✅ Services should be ready now"
 
   # Run post-deployment tests
-  - name: 'python:3.11-slim'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'bash'
     args:
       - '-c'

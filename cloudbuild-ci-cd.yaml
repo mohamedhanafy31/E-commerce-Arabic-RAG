@@ -241,105 +241,134 @@ steps:
 
   # Deploy RAG System to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+    entrypoint: 'bash'
     args:
-      - 'run'
-      - 'deploy'
-      - 'arabic-rag-system'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--port'
-      - '8002'
-      - '--memory'
-      - '8Gi'
-      - '--cpu'
-      - '4'
-      - '--timeout'
-      - '900'
-      - '--set-env-vars'
-      - 'GEMINI_API_KEY=${_GEMINI_API_KEY},HF_TOKEN=${_HF_TOKEN}'
-      - '--max-instances'
-      - '10'
-      - '--min-instances'
-      - '1'
-      - '--no-deploy-health-check'
+      - '-c'
+      - |
+        echo "🚀 Deploying RAG System to Cloud Run..."
+        for attempt in 1 2 3; do
+          echo "Attempt $attempt/3..."
+          if gcloud run deploy arabic-rag-system \
+            --image=gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID \
+            --region=us-central1 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8002 \
+            --memory=8Gi \
+            --cpu=4 \
+            --timeout=900 \
+            --set-env-vars=GEMINI_API_KEY=${_GEMINI_API_KEY},HF_TOKEN=${_HF_TOKEN} \
+            --max-instances=10 \
+            --min-instances=1 \
+            --no-deploy-health-check; then
+            echo "✅ RAG System deployed successfully"
+            break
+          else
+            echo "❌ Attempt $attempt failed"
+            if [ $attempt -eq 3 ]; then
+              echo "❌ All deployment attempts failed"
+              exit 1
+            fi
+            echo "⏳ Waiting 30 seconds before retry..."
+            sleep 30
+          fi
+        done
     id: 'deploy-rag'
 
   # Deploy ASR API to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+    entrypoint: 'bash'
     args:
-      - 'run'
-      - 'deploy'
-      - 'arabic-asr-api'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--port'
-      - '8001'
-      - '--memory'
-      - '1Gi'
-      - '--cpu'
-      - '1'
-      - '--set-env-vars'
-      - 'GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json'
+      - '-c'
+      - |
+        echo "🚀 Deploying ASR API to Cloud Run..."
+        for attempt in 1 2 3; do
+          echo "Attempt $attempt/3..."
+          if gcloud run deploy arabic-asr-api \
+            --image=gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID \
+            --region=us-central1 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8001 \
+            --memory=1Gi \
+            --cpu=1 \
+            --set-env-vars=GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json; then
+            echo "✅ ASR API deployed successfully"
+            break
+          else
+            echo "❌ Attempt $attempt failed"
+            if [ $attempt -eq 3 ]; then
+              echo "❌ All deployment attempts failed"
+              exit 1
+            fi
+            echo "⏳ Waiting 30 seconds before retry..."
+            sleep 30
+          fi
+        done
     id: 'deploy-asr'
 
   # Deploy TTS API to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+    entrypoint: 'bash'
     args:
-      - 'run'
-      - 'deploy'
-      - 'arabic-tts-api'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--port'
-      - '8003'
-      - '--memory'
-      - '1Gi'
-      - '--cpu'
-      - '1'
-      - '--set-env-vars'
-      - 'GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json'
+      - '-c'
+      - |
+        echo "🚀 Deploying TTS API to Cloud Run..."
+        for attempt in 1 2 3; do
+          echo "Attempt $attempt/3..."
+          if gcloud run deploy arabic-tts-api \
+            --image=gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID \
+            --region=us-central1 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8003 \
+            --memory=1Gi \
+            --cpu=1 \
+            --set-env-vars=GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json; then
+            echo "✅ TTS API deployed successfully"
+            break
+          else
+            echo "❌ Attempt $attempt failed"
+            if [ $attempt -eq 3 ]; then
+              echo "❌ All deployment attempts failed"
+              exit 1
+            fi
+            echo "⏳ Waiting 30 seconds before retry..."
+            sleep 30
+          fi
+        done
     id: 'deploy-tts'
 
   # Deploy Orchestrator to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+    entrypoint: 'bash'
     args:
-      - 'run'
-      - 'deploy'
-      - 'arabic-orchestrator'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--port'
-      - '8004'
-      - '--memory'
-      - '1Gi'
-      - '--cpu'
-      - '1'
-      - '--set-env-vars'
-      - 'ASR_SERVICE_URL=wss://arabic-asr-api-g7emhxfjaq-uc.a.run.app,RAG_SERVICE_URL=https://arabic-rag-system-g7emhxfjaq-uc.a.run.app,TTS_SERVICE_URL=wss://arabic-tts-api-g7emhxfjaq-uc.a.run.app'
+      - '-c'
+      - |
+        echo "🚀 Deploying Orchestrator to Cloud Run..."
+        for attempt in 1 2 3; do
+          echo "Attempt $attempt/3..."
+          if gcloud run deploy arabic-orchestrator \
+            --image=gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID \
+            --region=us-central1 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8004 \
+            --memory=1Gi \
+            --cpu=1 \
+            --set-env-vars=ASR_SERVICE_URL=wss://arabic-asr-api-g7emhxfjaq-uc.a.run.app,RAG_SERVICE_URL=https://arabic-rag-system-g7emhxfjaq-uc.a.run.app,TTS_SERVICE_URL=wss://arabic-tts-api-g7emhxfjaq-uc.a.run.app; then
+            echo "✅ Orchestrator deployed successfully"
+            break
+          else
+            echo "❌ Attempt $attempt failed"
+            if [ $attempt -eq 3 ]; then
+              echo "❌ All deployment attempts failed"
+              exit 1
+            fi
+            echo "⏳ Waiting 30 seconds before retry..."
+            sleep 30
+          fi
+        done
     id: 'deploy-orchestrator'
 
   # =============================================================================

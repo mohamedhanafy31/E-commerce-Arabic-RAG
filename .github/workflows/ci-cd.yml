@@ -84,9 +84,11 @@ jobs:
       - name: Authenticate to Google Cloud
         run: |
           echo "🔐 Authenticating to Google Cloud..."
-          gcloud auth activate-service-account --key-file="${{ secrets.GCP_SA_KEY }}"
+          echo "${{ secrets.GCP_SA_KEY }}" > /tmp/service-account-key.json
+          gcloud auth activate-service-account --key-file=/tmp/service-account-key.json
           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
           gcloud auth list
+          rm /tmp/service-account-key.json
 
       - name: Configure Docker for GCR
         run: |
@@ -119,9 +121,11 @@ jobs:
       - name: Authenticate to Google Cloud
         run: |
           echo "🔐 Authenticating to Google Cloud..."
-          gcloud auth activate-service-account --key-file="${{ secrets.GCP_SA_KEY }}"
+          echo "${{ secrets.GCP_SA_KEY }}" > /tmp/service-account-key.json
+          gcloud auth activate-service-account --key-file=/tmp/service-account-key.json
           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
           gcloud auth list
+          rm /tmp/service-account-key.json
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -302,9 +306,11 @@ jobs:
       - name: Authenticate to Google Cloud
         run: |
           echo "🔐 Authenticating to Google Cloud..."
-          gcloud auth activate-service-account --key-file="${{ secrets.GCP_SA_KEY }}"
+          echo "${{ secrets.GCP_SA_KEY }}" > /tmp/service-account-key.json
+          gcloud auth activate-service-account --key-file=/tmp/service-account-key.json
           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
           gcloud auth list
+          rm /tmp/service-account-key.json
 
       - name: Get service URLs
         run: |

@@ -368,12 +368,12 @@ steps:
         # Note: Services are already publicly accessible from previous deployments
         echo "✅ Services should already be publicly accessible"
         
-        # Get service URLs using project ID
-        PROJECT_ID=$$(gcloud config get-value project)
-        RAG_URL="https://arabic-rag-system-$${PROJECT_ID}.us-central1.run.app"
-        ASR_URL="https://arabic-asr-api-$${PROJECT_ID}.us-central1.run.app"
-        TTS_URL="https://arabic-tts-api-$${PROJECT_ID}.us-central1.run.app"
-        ORCHESTRATOR_URL="https://arabic-orchestrator-$${PROJECT_ID}.us-central1.run.app"
+        # Get service URLs using project number (Cloud Run uses project number, not name)
+        PROJECT_NUMBER=$$(gcloud projects describe $$(gcloud config get-value project) --format="value(projectNumber)")
+        RAG_URL="https://arabic-rag-system-$${PROJECT_NUMBER}.us-central1.run.app"
+        ASR_URL="https://arabic-asr-api-$${PROJECT_NUMBER}.us-central1.run.app"
+        TTS_URL="https://arabic-tts-api-$${PROJECT_NUMBER}.us-central1.run.app"
+        ORCHESTRATOR_URL="https://arabic-orchestrator-$${PROJECT_NUMBER}.us-central1.run.app"
         
         echo "🌐 Service URLs:"
         echo "  RAG System: $$RAG_URL"
@@ -434,12 +434,12 @@ steps:
         echo "📊 Build ID: $BUILD_ID"
         echo "🕒 Timestamp: $(date)"
         
-        # Get final service URLs using project ID
-        PROJECT_ID=$$(gcloud config get-value project)
-        RAG_URL="https://arabic-rag-system-$${PROJECT_ID}.us-central1.run.app"
-        ASR_URL="https://arabic-asr-api-$${PROJECT_ID}.us-central1.run.app"
-        TTS_URL="https://arabic-tts-api-$${PROJECT_ID}.us-central1.run.app"
-        ORCHESTRATOR_URL="https://arabic-orchestrator-$${PROJECT_ID}.us-central1.run.app"
+        # Get final service URLs using project number (Cloud Run uses project number, not name)
+        PROJECT_NUMBER=$$(gcloud projects describe $$(gcloud config get-value project) --format="value(projectNumber)")
+        RAG_URL="https://arabic-rag-system-$${PROJECT_NUMBER}.us-central1.run.app"
+        ASR_URL="https://arabic-asr-api-$${PROJECT_NUMBER}.us-central1.run.app"
+        TTS_URL="https://arabic-tts-api-$${PROJECT_NUMBER}.us-central1.run.app"
+        ORCHESTRATOR_URL="https://arabic-orchestrator-$${PROJECT_NUMBER}.us-central1.run.app"
         
         echo ""
         echo "🌐 Live Service URLs:"

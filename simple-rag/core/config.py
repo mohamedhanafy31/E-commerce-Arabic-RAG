@@ -31,6 +31,9 @@ class Config(BaseModel):
     gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
     gemini_model: str = "gemini-2.5-flash"
     
+    # Hugging Face Configuration
+    hf_token: Optional[str] = os.getenv("HF_TOKEN")
+    
     # Storage Configuration
     vector_store_path: str = "./data/vector_store"
     documents_path: str = "./data/documents"

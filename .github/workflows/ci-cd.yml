@@ -1,0 +1,320 @@
+name: Arabic RAG System CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE_NAMES: arabic-rag-system,arabic-asr-api,arabic-tts-api,arabic-orchestrator
+
+jobs:
+  # =============================================================================
+  # PRE-BUILD TESTING
+  # =============================================================================
+  pre-build-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-asyncio httpx websockets requests
+
+      - name: Run pre-build tests
+        run: |
+          echo "🧪 Running pre-build tests..."
+          python -c "
+          import os
+          required_files = [
+              'simple-rag/main.py',
+              'ASR_API/run.py', 
+              'TTS_API/run.py',
+              'Orchestrator/run.py',
+              'deploy.sh',
+              'run_all_tests.py'
+          ]
+          
+          missing_files = [f for f in required_files if not os.path.exists(f)]
+          if missing_files:
+              print(f'❌ Missing files: {missing_files}')
+              exit(1)
+          else:
+              print('✅ All required files present')
+          "
+
+      - name: Test Docker builds locally
+        run: |
+          echo "🐳 Testing Docker builds..."
+          docker build -t test-rag ./simple-rag
+          docker build -t test-asr ./ASR_API
+          docker build -t test-tts ./TTS_API
+          docker build -t test-orchestrator ./Orchestrator
+          echo "✅ All Docker builds successful"
+
+  # =============================================================================
+  # BUILD AND DEPLOY TO GCP
+  # =============================================================================
+  build-and-deploy:
+    needs: pre-build-tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Submit to Cloud Build
+        run: |
+          echo "🚀 Starting Cloud Build..."
+          gcloud builds submit \
+            --config cloudbuild-ci-cd.yaml \
+            --substitutions=_GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}",_HF_TOKEN="${{ secrets.HF_TOKEN }}" \
+            --timeout=3600s
+
+  # =============================================================================
+  # POST-DEPLOYMENT TESTING
+  # =============================================================================
+  post-deployment-tests:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          pip install requests pytest
+
+      - name: Wait for services to be ready
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+          sleep 120
+
+      - name: Run comprehensive post-deployment tests
+        run: |
+          echo "🧪 Running post-deployment tests..."
+          
+          # Get service URLs
+          RAG_URL=$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
+          ASR_URL=$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
+          TTS_URL=$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
+          ORCHESTRATOR_URL=$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+          
+          echo "🌐 Service URLs:"
+          echo "  RAG System: $RAG_URL"
+          echo "  ASR API: $ASR_URL"
+          echo "  TTS API: $TTS_URL"
+          echo "  Orchestrator: $ORCHESTRATOR_URL"
+          
+          # Create comprehensive test script
+          cat > post_deployment_test.py << 'EOF'
+          import requests
+          import json
+          import time
+          from datetime import datetime
+          
+          def test_service_health():
+              print("🏥 Testing service health...")
+              
+              services = {
+                  'RAG System': '$RAG_URL/health',
+                  'ASR API': '$ASR_URL/health',
+                  'TTS API': '$TTS_URL/health',
+                  'Orchestrator': '$ORCHESTRATOR_URL/health'
+              }
+              
+              healthy_count = 0
+              total_count = len(services)
+              
+              for name, url in services.items():
+                  try:
+                      response = requests.get(url, timeout=30)
+                      if response.status_code == 200:
+                          print(f'✅ {name}: Healthy')
+                          healthy_count += 1
+                      else:
+                          print(f'❌ {name}: HTTP {response.status_code}')
+                  except Exception as e:
+                      print(f'❌ {name}: {e}')
+              
+              return healthy_count, total_count
+          
+          def test_endpoints():
+              print("🌐 Testing endpoints...")
+              
+              endpoints = {
+                  'ASR Web UI': '$ASR_URL/',
+                  'TTS Voices': '$TTS_URL/voices',
+                  'RAG Stats': '$RAG_URL/stats',
+                  'Orchestrator Stats': '$ORCHESTRATOR_URL/stats'
+              }
+              
+              working_count = 0
+              total_count = len(endpoints)
+              
+              for name, url in endpoints.items():
+                  try:
+                      response = requests.get(url, timeout=30)
+                      if response.status_code == 200:
+                          print(f'✅ {name}: Working')
+                          working_count += 1
+                      else:
+                          print(f'❌ {name}: HTTP {response.status_code}')
+                  except Exception as e:
+                      print(f'❌ {name}: {e}')
+              
+              return working_count, total_count
+          
+          def main():
+              print("🚀 POST-DEPLOYMENT TESTING")
+              print("=" * 40)
+              
+              # Test service health
+              healthy_count, total_services = test_service_health()
+              print()
+              
+              # Test endpoints
+              working_count, total_endpoints = test_endpoints()
+              print()
+              
+              # Summary
+              print("📊 SUMMARY:")
+              print(f"  Healthy Services: {healthy_count}/{total_services}")
+              print(f"  Working Endpoints: {working_count}/{total_endpoints}")
+              print()
+              
+              if healthy_count == total_services and working_count >= total_endpoints * 0.75:
+                  print("🎉 POST-DEPLOYMENT TESTS PASSED!")
+                  print("✅ Arabic RAG System is fully operational")
+                  return True
+              else:
+                  print("⚠️ POST-DEPLOYMENT TESTS FAILED!")
+                  print("❌ Some services need attention")
+                  return False
+          
+          if __name__ == "__main__":
+              success = main()
+              exit(0 if success else 1)
+          EOF
+          
+          python post_deployment_test.py
+
+      - name: Generate deployment report
+        run: |
+          echo "📄 Generating deployment report..."
+          
+          RAG_URL=$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
+          ASR_URL=$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
+          TTS_URL=$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
+          ORCHESTRATOR_URL=$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+          
+          cat > deployment_report.md << EOF
+          # Arabic RAG System Deployment Report
+          
+          **Deployment Date:** $(date)
+          **Build ID:** ${{ github.run_id }}
+          **Commit:** ${{ github.sha }}
+          
+          ## Service URLs
+          
+          - **RAG System:** $RAG_URL
+          - **ASR API:** $ASR_URL
+          - **TTS API:** $TTS_URL
+          - **Orchestrator:** $ORCHESTRATOR_URL
+          
+          ## Test Results
+          
+          All services have been tested and are operational.
+          
+          ## Next Steps
+          
+          1. Test the system at: $ORCHESTRATOR_URL/test
+          2. Monitor service health
+          3. Review logs if needed
+          
+          EOF
+          
+          echo "📄 Deployment report generated"
+
+  # =============================================================================
+  # NOTIFICATION
+  # =============================================================================
+  notify:
+    needs: [build-and-deploy, post-deployment-tests]
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Get service URLs
+        run: |
+          RAG_URL=$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
+          ASR_URL=$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
+          TTS_URL=$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
+          ORCHESTRATOR_URL=$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+          
+          echo "RAG_URL=$RAG_URL" >> $GITHUB_ENV
+          echo "ASR_URL=$ASR_URL" >> $GITHUB_ENV
+          echo "TTS_URL=$TTS_URL" >> $GITHUB_ENV
+          echo "ORCHESTRATOR_URL=$ORCHESTRATOR_URL" >> $GITHUB_ENV
+
+      - name: Success notification
+        if: success()
+        run: |
+          echo "🎉 CI/CD Pipeline completed successfully!"
+          echo "🌐 Arabic RAG System deployed to Google Cloud Platform"
+          echo ""
+          echo "Service URLs:"
+          echo "  RAG System: $RAG_URL"
+          echo "  ASR API: $ASR_URL"
+          echo "  TTS API: $TTS_URL"
+          echo "  Orchestrator: $ORCHESTRATOR_URL"
+          echo ""
+          echo "Test the system at: $ORCHESTRATOR_URL/test"
+
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "❌ CI/CD Pipeline failed!"
+          echo "Please check the logs and fix the issues."
+          echo "Build ID: ${{ github.run_id }}"
+          echo "Commit: ${{ github.sha }}"

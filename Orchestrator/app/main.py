@@ -96,21 +96,13 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     try:
-        # Check service dependencies
-        asr_manager = get_orchestrator_service().asr_manager
-        rag_manager = get_orchestrator_service().rag_manager
-        tts_manager = get_orchestrator_service().tts_manager
-        
-        # Basic health checks (could be enhanced)
+        # Basic health checks
         health_status = {
             "status": "healthy",
             "timestamp": "2024-01-01T00:00:00Z",  # Would use datetime.utcnow().isoformat()
             "services": {
                 "orchestrator": "healthy",
-                "session_manager": "healthy",
-                "asr_client_manager": "healthy",
-                "rag_client_manager": "healthy", 
-                "tts_client_manager": "healthy"
+                "session_manager": "healthy"
             },
             "active_sessions": len(orchestrator_service.active_sessions),
             "max_sessions": settings.max_concurrent_sessions

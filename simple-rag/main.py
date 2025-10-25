@@ -111,7 +111,7 @@ async def startup_event():
     print("🚀 Starting Simple Arabic RAG System...")
     logger.info("Starting system initialization")
     
-    # Initialize embedder
+    # Initialize embedder (model already downloaded during build)
     print("📥 Loading embedding model...")
     logger.info("Loading embedding model")
     embedder.load()

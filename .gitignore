@@ -1,21 +1,3 @@
-# Google Cloud Credentials
-tts-key.json
-TTS_API/tts-key.json
-ASR_API/tts-key.json
-**/tts-key.json
-*.json
-!package.json
-!tsconfig.json
-
-# Audio files
-*.mp3
-*.wav
-*.m4a
-*.aac
-
-# Documents
-*.pdf
-
 # Python
 __pycache__/
 *.py[cod]
@@ -37,7 +19,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual environments
 venv/
@@ -45,6 +26,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
+.conda/
 
 # IDE
 .vscode/
@@ -63,10 +45,46 @@ ehthumbs.db
 Thumbs.db
 
 # Logs
-*.log
 logs/
+*.log
 
-# Environment variables
+# Data files
+data/
+simple-rag/data/
+*.faiss
+*.pkl
+
+# Temporary files
+temp/
+simple-rag/temp/
+*.tmp
+
+# Test report files (keep testing scripts)
+test_report_*.json
+gcp_test_report_*.json
+
+# Audio files (large)
+TTS_API/test1/
+TTS_API/test2/
+*.mp3
+*.wav
+*.m4a
+
+# API Keys (security)
+*key.json
+*.key
 .env
-.env.local
-.env.*.local
+tts-key.json
+ASR_API/tts-key.json
+TTS_API/tts-key.json
+
+# Docker
+.dockerignore
+
+# Backup files
+backup_*/
+old_scripts/
+
+# Large text files
+large.txt
+*.txt.bak

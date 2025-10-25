@@ -17,6 +17,7 @@ class ArabicEmbedder:
         self.model_name = model_name or config.embedding_model
         self.model = None
         self.is_loaded = False
+        self.config = config
         
         # Handle CUDA compatibility issues
         cuda_available = False
@@ -53,6 +54,12 @@ class ArabicEmbedder:
         try:
             print(f"📥 Loading embedding model: {self.model_name}")
             print(f"🎯 Loading on device: {self.device}")
+            
+            # Set Hugging Face token if available
+            if self.config.hf_token:
+                import os
+                os.environ['HF_TOKEN'] = self.config.hf_token
+                print("🔑 Using Hugging Face token for authentication")
             
             # Try to load on GPU first
             try:

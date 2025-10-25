@@ -1,0 +1,165 @@
+# Google Cloud Build configuration for Arabic RAG System with Layer Caching
+steps:
+  # Build RAG System with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-rag-system:latest'
+      - '--build-arg'
+      - 'HF_TOKEN=${_HF_TOKEN}'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-rag-system'
+      - './simple-rag'
+    dir: '.'
+
+  # Build ASR API with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-asr-api:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-asr-api'
+      - './ASR_API'
+    dir: '.'
+
+  # Build TTS API with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-tts-api:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-tts-api'
+      - './TTS_API'
+    dir: '.'
+
+  # Build Orchestrator with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-orchestrator:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-orchestrator'
+      - './Orchestrator'
+    dir: '.'
+
+  # Push images to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-rag-system']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-asr-api']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-tts-api']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-orchestrator']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-rag-system'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-rag-system'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8002'
+      - '--memory'
+      - '8Gi'
+      - '--cpu'
+      - '4'
+      - '--timeout'
+      - '900'
+      - '--set-env-vars'
+      - 'GEMINI_API_KEY=${_GEMINI_API_KEY},HF_TOKEN=${_HF_TOKEN}'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '1'
+      - '--no-deploy-health-check'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-asr-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-asr-api'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8001'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--set-env-vars'
+      - 'GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-tts-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-tts-api'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8003'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--set-env-vars'
+      - 'GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-orchestrator'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-orchestrator'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8004'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--set-env-vars'
+      - 'ASR_SERVICE_URL=wss://arabic-asr-api-g7emhxfjaq-uc.a.run.app,RAG_SERVICE_URL=https://arabic-rag-system-g7emhxfjaq-uc.a.run.app,TTS_SERVICE_URL=wss://arabic-tts-api-g7emhxfjaq-uc.a.run.app'
+
+# Substitution variables
+substitutions:
+  _GEMINI_API_KEY: 'AIzaSyDAH3d8QWWhfpoZLvA5-ik9ZXogSHDAfBA'
+
+# Build options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'

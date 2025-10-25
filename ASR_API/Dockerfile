@@ -1,4 +1,4 @@
-# Orchestrator - Optimized Multi-Stage Build Dockerfile
+# ASR API - Optimized Multi-Stage Build Dockerfile
 # Stage 1: Base image with dependencies
 FROM python:3.11-slim as base
 
@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     curl \
+    ffmpeg \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,20 +34,30 @@ FROM base as runtime
 COPY . .
 
 # Create directories and set permissions
-RUN mkdir -p /app/logs && \
-    chmod 755 /app/logs
+RUN mkdir -p /app/data/audio /app/logs && \
+    chmod 755 /app/data/audio /app/logs
 
 # Create non-root user
-RUN useradd --create-home --shell /bin/bash orchestrator && \
-    chown -R orchestrator:orchestrator /app
-USER orchestrator
+RUN useradd --create-home --shell /bin/bash asruser && \
+    chown -R asruser:asruser /app
+
+# Ensure credentials file has correct permissions for the user
+RUN if [ -f /app/tts-key.json ]; then \
+        chmod 644 /app/tts-key.json && \
+        chown asruser:asruser /app/tts-key.json && \
+        echo "✅ Credentials file permissions set successfully"; \
+    else \
+        echo "⚠️  tts-key.json not found in /app"; \
+    fi
+
+USER asruser
 
 # Expose port
-EXPOSE 8004
+EXPOSE 8001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8004/health || exit 1
+    CMD curl -f http://localhost:8001/health || exit 1
 
 # Run the application
 CMD ["python", "run.py"]

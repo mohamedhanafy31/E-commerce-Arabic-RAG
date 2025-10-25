@@ -1,0 +1,159 @@
+# Docker Compose Configuration for E-commerce Arabic RAG System
+# All services running on one machine with proper networking and dependencies
+
+services:
+  # RAG System - Document processing and retrieval
+  rag-system:
+    build:
+      context: ./simple-rag
+      dockerfile: Dockerfile
+      args:
+        ENABLE_CUDA: false  # Set to true if you have CUDA support
+    container_name: arabic-rag-system
+    ports:
+      - "8002:8002"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8002
+      - EMBEDDING_MODEL=NAMAA-Space/AraModernBert-Base-V1.0
+      - GENERATION_MODEL=gemini
+      - FORCE_GPU=false
+      - GPU_DEVICE=cpu
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=gemini-2.5-flash
+      - VECTOR_STORE_PATH=./data/vector_store
+      - DOCUMENTS_PATH=./data/documents
+      - TEMP_PATH=./temp
+    volumes:
+      - rag_data:/app/data
+      - rag_logs:/app/logs
+    networks:
+      - arabic-rag-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ASR API - Speech Recognition Service
+  asr-api:
+    build:
+      context: ./ASR_API
+      dockerfile: Dockerfile
+    container_name: arabic-asr-api
+    ports:
+      - "8001:8001"
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json
+      - DEFAULT_LANGUAGE_CODE=ar-EG
+      - DEFAULT_SAMPLE_RATE_HERTZ=16000
+      - STREAMING_INTERIM_RESULTS=true
+      - ENABLE_AUTOMATIC_PUNCTUATION=true
+      - AUDIO_DIR=/app/data/audio
+    volumes:
+      - asr_audio:/app/data/audio
+      - asr_logs:/app/logs
+      - ./ASR_API/tts-key.json:/app/tts-key.json:ro
+    networks:
+      - arabic-rag-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # TTS API - Text-to-Speech Service
+  tts-api:
+    build:
+      context: ./TTS_API
+      dockerfile: Dockerfile
+    container_name: arabic-tts-api
+    ports:
+      - "8003:8003"
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json
+      - TTS_LANGUAGE_CODE=ar-XA
+      - AUDIO_DIR=/app/data/audio
+    volumes:
+      - tts_audio:/app/data/audio
+      - tts_logs:/app/logs
+      - ./TTS_API/tts-key.json:/app/tts-key.json:ro
+    networks:
+      - arabic-rag-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Orchestrator - Main coordination service
+  orchestrator:
+    build:
+      context: ./Orchestrator
+      dockerfile: Dockerfile
+    container_name: arabic-orchestrator
+    ports:
+      - "8004:8004"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8004
+      - ASR_SERVICE_URL=ws://asr-api:8001
+      - RAG_SERVICE_URL=http://rag-system:8002
+      - TTS_SERVICE_URL=ws://tts-api:8003
+      - AUDIO_SAMPLE_RATE=16000
+      - AUDIO_FORMAT=LINEAR16
+      - DEFAULT_LANGUAGE_CODE=ar-EG
+      - TTS_LANGUAGE_CODE=ar-XA
+      - MAX_CONCURRENT_SESSIONS=100
+      - SESSION_TIMEOUT_SECONDS=300
+      - ENABLE_CONVERSATION_HISTORY=true
+      - ENABLE_SENTENCE_STREAMING=true
+    volumes:
+      - orchestrator_logs:/app/logs
+    networks:
+      - arabic-rag-network
+    depends_on:
+      rag-system:
+        condition: service_healthy
+      asr-api:
+        condition: service_healthy
+      tts-api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Named volumes for persistent data
+volumes:
+  rag_data:
+    driver: local
+  rag_logs:
+    driver: local
+  asr_audio:
+    driver: local
+  asr_logs:
+    driver: local
+  tts_audio:
+    driver: local
+  tts_logs:
+    driver: local
+  orchestrator_logs:
+    driver: local
+
+# Custom network for service communication
+networks:
+  arabic-rag-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

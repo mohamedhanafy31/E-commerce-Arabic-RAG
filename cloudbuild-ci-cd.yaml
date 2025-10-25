@@ -1,0 +1,472 @@
+# Google Cloud Build CI/CD Pipeline for Arabic RAG System with Testing
+# This pipeline includes comprehensive testing before deployment
+
+steps:
+  # =============================================================================
+  # PRE-BUILD TESTING PHASE
+  # =============================================================================
+  
+  # Install Python and dependencies for testing
+  - name: 'python:3.11-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        apt-get update && apt-get install -y curl git
+        pip install pytest pytest-asyncio httpx websockets requests
+        echo "✅ Testing dependencies installed"
+
+  # Run comprehensive tests before building
+  - name: 'python:3.11-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🧪 Running pre-deployment tests..."
+        pip install pytest pytest-asyncio httpx websockets requests
+        
+        # Create a test script for CI environment
+        cat > ci_test.py << 'EOF'
+        import requests
+        import json
+        import time
+        from datetime import datetime
+        
+        def test_services():
+            print("🏥 Testing service configurations...")
+            
+            # Test if all required files exist
+            import os
+            required_files = [
+                'simple-rag/main.py',
+                'ASR_API/run.py', 
+                'TTS_API/run.py',
+                'Orchestrator/run.py',
+                'deploy.sh',
+                'run_all_tests.py'
+            ]
+            
+            missing_files = []
+            for file in required_files:
+                if not os.path.exists(file):
+                    missing_files.append(file)
+            
+            if missing_files:
+                print(f"❌ Missing files: {missing_files}")
+                return False
+            else:
+                print("✅ All required files present")
+                return True
+        
+        if __name__ == "__main__":
+            success = test_services()
+            if success:
+                print("🎉 Pre-deployment tests passed!")
+                exit(0)
+            else:
+                print("❌ Pre-deployment tests failed!")
+                exit(1)
+        EOF
+        
+        python ci_test.py
+
+  # =============================================================================
+  # BUILD PHASE WITH LAYER CACHING
+  # =============================================================================
+
+  # Build RAG System with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-rag-system:latest'
+      - '--build-arg'
+      - 'HF_TOKEN=${_HF_TOKEN}'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-rag-system'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID'
+      - './simple-rag'
+    dir: '.'
+    id: 'build-rag'
+
+  # Build ASR API with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-asr-api:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-asr-api'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID'
+      - './ASR_API'
+    dir: '.'
+    id: 'build-asr'
+
+  # Build TTS API with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-tts-api:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-tts-api'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID'
+      - './TTS_API'
+    dir: '.'
+    id: 'build-tts'
+
+  # Build Orchestrator with layer caching
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/arabic-orchestrator:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-orchestrator'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID'
+      - './Orchestrator'
+    dir: '.'
+    id: 'build-orchestrator'
+
+  # =============================================================================
+  # IMAGE TESTING PHASE
+  # =============================================================================
+
+  # Test RAG System image
+  - name: 'gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🧪 Testing RAG System image..."
+        python -c "import sys; print('Python version:', sys.version)"
+        python -c "from core.config import Config; print('✅ Config loaded')"
+        python -c "from core.embeddings import ArabicEmbedder; print('✅ Embedder available')"
+        echo "✅ RAG System image test passed"
+    id: 'test-rag-image'
+
+  # Test ASR API image
+  - name: 'gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🧪 Testing ASR API image..."
+        python -c "import sys; print('Python version:', sys.version)"
+        python -c "from app.main import app; print('✅ ASR app loaded')"
+        echo "✅ ASR API image test passed"
+    id: 'test-asr-image'
+
+  # Test TTS API image
+  - name: 'gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🧪 Testing TTS API image..."
+        python -c "import sys; print('Python version:', sys.version)"
+        python -c "from app.main import app; print('✅ TTS app loaded')"
+        echo "✅ TTS API image test passed"
+    id: 'test-tts-image'
+
+  # Test Orchestrator image
+  - name: 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🧪 Testing Orchestrator image..."
+        python -c "import sys; print('Python version:', sys.version)"
+        python -c "from app.main import app; print('✅ Orchestrator app loaded')"
+        echo "✅ Orchestrator image test passed"
+    id: 'test-orchestrator-image'
+
+  # =============================================================================
+  # PUSH PHASE
+  # =============================================================================
+
+  # Push images to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID']
+    waitFor: ['build-rag', 'test-rag-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID']
+    waitFor: ['build-asr', 'test-asr-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID']
+    waitFor: ['build-tts', 'test-tts-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID']
+    waitFor: ['build-orchestrator', 'test-orchestrator-image']
+
+  # Update latest tags
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID', 'gcr.io/$PROJECT_ID/arabic-rag-system:latest']
+    waitFor: ['build-rag', 'test-rag-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID', 'gcr.io/$PROJECT_ID/arabic-asr-api:latest']
+    waitFor: ['build-asr', 'test-asr-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID', 'gcr.io/$PROJECT_ID/arabic-tts-api:latest']
+    waitFor: ['build-tts', 'test-tts-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID', 'gcr.io/$PROJECT_ID/arabic-orchestrator:latest']
+    waitFor: ['build-orchestrator', 'test-orchestrator-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-rag-system:latest']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-asr-api:latest']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-tts-api:latest']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/arabic-orchestrator:latest']
+
+  # =============================================================================
+  # DEPLOYMENT PHASE
+  # =============================================================================
+
+  # Deploy RAG System to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-rag-system'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8002'
+      - '--memory'
+      - '8Gi'
+      - '--cpu'
+      - '4'
+      - '--timeout'
+      - '900'
+      - '--set-env-vars'
+      - 'GEMINI_API_KEY=${_GEMINI_API_KEY},HF_TOKEN=${_HF_TOKEN}'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '1'
+      - '--no-deploy-health-check'
+    id: 'deploy-rag'
+
+  # Deploy ASR API to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-asr-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8001'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--set-env-vars'
+      - 'GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json'
+    id: 'deploy-asr'
+
+  # Deploy TTS API to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-tts-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8003'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--set-env-vars'
+      - 'GOOGLE_APPLICATION_CREDENTIALS=/app/tts-key.json'
+    id: 'deploy-tts'
+
+  # Deploy Orchestrator to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'arabic-orchestrator'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8004'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--set-env-vars'
+      - 'ASR_SERVICE_URL=wss://arabic-asr-api-g7emhxfjaq-uc.a.run.app,RAG_SERVICE_URL=https://arabic-rag-system-g7emhxfjaq-uc.a.run.app,TTS_SERVICE_URL=wss://arabic-tts-api-g7emhxfjaq-uc.a.run.app'
+    id: 'deploy-orchestrator'
+
+  # =============================================================================
+  # POST-DEPLOYMENT TESTING PHASE
+  # =============================================================================
+
+  # Wait for services to be ready
+  - name: 'python:3.11-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "⏳ Waiting for services to be ready..."
+        sleep 60
+        echo "✅ Services should be ready now"
+
+  # Run post-deployment tests
+  - name: 'python:3.11-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🧪 Running post-deployment tests..."
+        pip install requests
+        
+        # Get service URLs
+        RAG_URL=$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
+        ASR_URL=$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
+        TTS_URL=$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
+        ORCHESTRATOR_URL=$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+        
+        echo "🌐 Service URLs:"
+        echo "  RAG System: $RAG_URL"
+        echo "  ASR API: $ASR_URL"
+        echo "  TTS API: $TTS_URL"
+        echo "  Orchestrator: $ORCHESTRATOR_URL"
+        
+        # Test health endpoints
+        python -c "
+        import requests
+        import json
+        
+        services = {
+            'RAG System': '$RAG_URL/health',
+            'ASR API': '$ASR_URL/health',
+            'TTS API': '$TTS_URL/health',
+            'Orchestrator': '$ORCHESTRATOR_URL/health'
+        }
+        
+        healthy_count = 0
+        total_count = len(services)
+        
+        for name, url in services.items():
+            try:
+                response = requests.get(url, timeout=30)
+                if response.status_code == 200:
+                    print(f'✅ {name}: Healthy')
+                    healthy_count += 1
+                else:
+                    print(f'❌ {name}: HTTP {response.status_code}')
+            except Exception as e:
+                print(f'❌ {name}: {e}')
+        
+        print(f'\\n📊 Health Summary: {healthy_count}/{total_count} services healthy')
+        
+        if healthy_count == total_count:
+            print('🎉 All services are healthy!')
+            exit(0)
+        else:
+            print('⚠️ Some services are not healthy')
+            exit(1)
+        "
+    waitFor: ['deploy-rag', 'deploy-asr', 'deploy-tts', 'deploy-orchestrator']
+
+  # =============================================================================
+  # NOTIFICATION PHASE
+  # =============================================================================
+
+  # Send success notification
+  - name: 'python:3.11-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "📢 CI/CD Pipeline completed successfully!"
+        echo "🎉 Arabic RAG System deployed to Google Cloud Platform"
+        echo "🌐 Services are live and healthy"
+        echo "📊 Build ID: $BUILD_ID"
+        echo "🕒 Timestamp: $(date)"
+        
+        # Get final service URLs
+        RAG_URL=$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
+        ASR_URL=$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
+        TTS_URL=$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
+        ORCHESTRATOR_URL=$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+        
+        echo ""
+        echo "🌐 Live Service URLs:"
+        echo "  RAG System: $RAG_URL"
+        echo "  ASR API: $ASR_URL"
+        echo "  TTS API: $TTS_URL"
+        echo "  Orchestrator: $ORCHESTRATOR_URL"
+        echo ""
+        echo "🧪 Test the system at: $ORCHESTRATOR_URL/test"
+
+# Substitution variables (set these in Cloud Build trigger)
+substitutions:
+  _GEMINI_API_KEY: ''  # Set this in Cloud Build trigger
+  _HF_TOKEN: ''        # Set this in Cloud Build trigger
+
+# Build options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 100
+  substitutionOption: 'ALLOW_LOOSE'
+
+# Timeout for the entire build
+timeout: '3600s'
+
+# Images to be pushed to registry
+images:
+  - 'gcr.io/$PROJECT_ID/arabic-rag-system:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/arabic-rag-system:latest'
+  - 'gcr.io/$PROJECT_ID/arabic-asr-api:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/arabic-asr-api:latest'
+  - 'gcr.io/$PROJECT_ID/arabic-tts-api:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/arabic-tts-api:latest'
+  - 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/arabic-orchestrator:latest'

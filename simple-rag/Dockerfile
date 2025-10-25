@@ -1,60 +1,69 @@
-# syntax=docker/dockerfile:1
+# RAG System - Optimized Multi-Stage Build Dockerfile
+# Stage 1: Base image with dependencies and model
+FROM python:3.11-slim as base
 
-# Base: slim Python 3.10 to match env
-FROM python:3.10-slim
-
+# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PYTHONUNBUFFERED=1
 
-# Install system deps (faiss and common build tools)
-RUN apt-get update -y && apt-get install -y --no-install-recommends \
+# Install system dependencies including uv
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     git \
-    libstdc++6 \
     curl \
+    libstdc++6 \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
 
+# Add uv to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
+# Set working directory
 WORKDIR /app
 
-# Copy only requirements first for better caching
-COPY requirements.txt ./
+# Copy requirements first for better caching
+COPY requirements.txt .
 
-# Install Python deps
+# Install Python dependencies using uv
 # Optional build arg to install CUDA-enabled PyTorch wheels
 ARG ENABLE_CUDA=false
 
-RUN pip install --upgrade pip && \
-    if [ "$ENABLE_CUDA" = "true" ]; then \
-      pip install --extra-index-url https://download.pytorch.org/whl/cu121 \
+RUN if [ "$ENABLE_CUDA" = "true" ]; then \
+      uv pip install --system --extra-index-url https://download.pytorch.org/whl/cu121 \
         torch==2.5.1+cu121 torchvision==0.20.1+cu121 torchaudio==2.5.1+cu121 && \
-      pip install -r requirements.txt; \
+      uv pip install --system -r requirements.txt; \
     else \
-      pip install -r requirements.txt; \
+      uv pip install --system -r requirements.txt; \
     fi
 
-# Copy app code
+# Stage 2: Final runtime image
+FROM base as runtime
+
+# Copy application code (this layer changes frequently)
 COPY . .
 
-# Expose API port
-EXPOSE 8000
+# Pre-download the Arabic BERT model during build to avoid runtime rate limiting
+# This ensures the model is available in the runtime stage
+# Use Hugging Face token for authentication
+ARG HF_TOKEN
+RUN python -c "import os; os.environ['HF_TOKEN'] = '$HF_TOKEN'; from sentence_transformers import SentenceTransformer; SentenceTransformer('NAMAA-Space/AraModernBert-Base-V1.0')"
 
-# Default envs (can be overridden)
-ENV RAG_API_HOST=0.0.0.0 \
-    RAG_API_PORT=8000 \
-    RAG_VECTOR_STORE_PATH=./data/vector_store \
-    RAG_DOCUMENTS_PATH=./data/documents \
-    RAG_TEMP_PATH=./temp
+# Create directories and set permissions
+RUN mkdir -p /app/data/vector_store /app/data/documents /app/temp /app/logs && \
+    chmod 755 /app/data/vector_store /app/data/documents /app/temp /app/logs
 
-# Create runtime dirs
-RUN mkdir -p ./data/vector_store ./data/documents ./temp
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash raguser && \
+    chown -R raguser:raguser /app
+USER raguser
 
-# Healthcheck (optional): FastAPI root
-HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD curl -f http://localhost:8000/ || exit 1
+# Expose port
+EXPOSE 8002
 
-# Run with uvicorn (reload off in containers)
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
+
+# Run the application
 CMD ["python", "main.py"]
-
-

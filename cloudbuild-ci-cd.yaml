@@ -366,16 +366,16 @@ steps:
         pip install requests
         
         # Get service URLs
-        RAG_URL=$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
-        ASR_URL=$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
-        TTS_URL=$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
-        ORCHESTRATOR_URL=$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+        RAG_URL=$$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
+        ASR_URL=$$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
+        TTS_URL=$$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
+        ORCHESTRATOR_URL=$$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
         
         echo "🌐 Service URLs:"
-        echo "  RAG System: $RAG_URL"
-        echo "  ASR API: $ASR_URL"
-        echo "  TTS API: $TTS_URL"
-        echo "  Orchestrator: $ORCHESTRATOR_URL"
+        echo "  RAG System: $$RAG_URL"
+        echo "  ASR API: $$ASR_URL"
+        echo "  TTS API: $$TTS_URL"
+        echo "  Orchestrator: $$ORCHESTRATOR_URL"
         
         # Test health endpoints
         python -c "
@@ -383,10 +383,10 @@ steps:
         import json
         
         services = {
-            'RAG System': '$RAG_URL/health',
-            'ASR API': '$ASR_URL/health',
-            'TTS API': '$TTS_URL/health',
-            'Orchestrator': '$ORCHESTRATOR_URL/health'
+            'RAG System': '$$RAG_URL/health',
+            'ASR API': '$$ASR_URL/health',
+            'TTS API': '$$TTS_URL/health',
+            'Orchestrator': '$$ORCHESTRATOR_URL/health'
         }
         
         healthy_count = 0
@@ -431,17 +431,17 @@ steps:
         echo "🕒 Timestamp: $(date)"
         
         # Get final service URLs
-        RAG_URL=$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
-        ASR_URL=$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
-        TTS_URL=$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
-        ORCHESTRATOR_URL=$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
+        RAG_URL=$$(gcloud run services describe arabic-rag-system --region=us-central1 --format="value(status.url)")
+        ASR_URL=$$(gcloud run services describe arabic-asr-api --region=us-central1 --format="value(status.url)")
+        TTS_URL=$$(gcloud run services describe arabic-tts-api --region=us-central1 --format="value(status.url)")
+        ORCHESTRATOR_URL=$$(gcloud run services describe arabic-orchestrator --region=us-central1 --format="value(status.url)")
         
         echo ""
         echo "🌐 Live Service URLs:"
-        echo "  RAG System: $RAG_URL"
-        echo "  ASR API: $ASR_URL"
-        echo "  TTS API: $TTS_URL"
-        echo "  Orchestrator: $ORCHESTRATOR_URL"
+        echo "  RAG System: $$RAG_URL"
+        echo "  ASR API: $$ASR_URL"
+        echo "  TTS API: $$TTS_URL"
+        echo "  Orchestrator: $$ORCHESTRATOR_URL"
         echo ""
         echo "🧪 Test the system at: $ORCHESTRATOR_URL/test"
 

@@ -6,6 +6,9 @@ FROM python:3.11-slim as base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# Build argument for service account credentials
+ARG GOOGLE_APPLICATION_CREDENTIALS_JSON=""
+
 # Install system dependencies including uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -36,6 +39,14 @@ COPY . .
 # Create directories and set permissions
 RUN mkdir -p /app/data/audio /app/logs && \
     chmod 755 /app/data/audio /app/logs
+
+# Create credentials file from build argument if provided
+RUN if [ -n "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ]; then \
+        echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > /app/tts-key.json && \
+        echo "✅ Credentials file created from build argument"; \
+    else \
+        echo "⚠️  GOOGLE_APPLICATION_CREDENTIALS_JSON not provided"; \
+    fi
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash asruser && \

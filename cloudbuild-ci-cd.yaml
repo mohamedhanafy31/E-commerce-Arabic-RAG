@@ -96,6 +96,8 @@ steps:
       - 'build'
       - '--cache-from'
       - 'gcr.io/$PROJECT_ID/arabic-asr-api:latest'
+      - '--build-arg'
+      - 'GOOGLE_APPLICATION_CREDENTIALS_JSON=${_GOOGLE_APPLICATION_CREDENTIALS_JSON}'
       - '-t'
       - 'gcr.io/$PROJECT_ID/arabic-asr-api'
       - '-t'
@@ -103,6 +105,7 @@ steps:
       - './ASR_API'
     dir: '.'
     id: 'build-asr'
+    secretEnv: ['GOOGLE_APPLICATION_CREDENTIALS_JSON']
 
   # Build TTS API with layer caching
   - name: 'gcr.io/cloud-builders/docker'
@@ -475,3 +478,9 @@ images:
   - 'gcr.io/$PROJECT_ID/arabic-tts-api:latest'
   - 'gcr.io/$PROJECT_ID/arabic-orchestrator:$BUILD_ID'
   - 'gcr.io/$PROJECT_ID/arabic-orchestrator:latest'
+
+# Substitutions (set via gcloud or Cloud Build triggers)
+substitutions:
+  _GEMINI_API_KEY: ''
+  _HF_TOKEN: ''
+  _GOOGLE_APPLICATION_CREDENTIALS_JSON: ''

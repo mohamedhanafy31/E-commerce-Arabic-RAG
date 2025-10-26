@@ -99,7 +99,7 @@ jobs:
           echo "🚀 Starting Cloud Build..."
           gcloud builds submit \
             --config cloudbuild-ci-cd.yaml \
-            --substitutions=_GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}",_HF_TOKEN="${{ secrets.HF_TOKEN }}" \
+            --substitutions=_GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}",_HF_TOKEN="${{ secrets.HF_TOKEN }}",_GOOGLE_APPLICATION_CREDENTIALS_JSON="${{ secrets.GCP_SA_KEY }}" \
             --timeout=3600s
 
   # =============================================================================
